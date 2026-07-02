@@ -1,0 +1,20 @@
+[importlinter]
+root_packages =
+    app
+
+# ---------------------------------------------------------------------------
+# La infraestructura generica de app.core (db, repos, config, jobs, events,
+# exceptions, concurrency) no debe conocer las capas de arriba. Cuando nazcan
+# los contextos de dominio (app.hazards en la fase EFFIS, app.analytics en la
+# fase DuckDB) se anadiran aqui sus contratos: core agnostico del dominio,
+# capas internas de cada contexto, y hazards <-/-> analytics.
+# ---------------------------------------------------------------------------
+[importlinter:contract:core-sin-dependencias-hacia-arriba]
+name = app.core no importa api, deps ni main
+type = forbidden
+source_modules =
+    app.core
+forbidden_modules =
+    app.api
+    app.deps
+    app.main

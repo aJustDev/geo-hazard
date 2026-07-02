@@ -1,0 +1,110 @@
+[project]
+name = "geo-hazard"
+version = "0.1.0"
+description = "Natural-hazard spatial API for the Iberian Peninsula - FastAPI + SQLAlchemy 2 async + PostGIS operational plane, DuckDB/GeoParquet analytical plane, Postgres-native jobs and outbox. No broker."
+readme = "README.md"
+requires-python = ">=3.14"
+license = "MIT"
+authors = [{ name = "Adrian Justino Maestre", email = "ajustinodev@proton.me" }]
+keywords = ["fastapi", "postgis", "duckdb", "geoparquet", "geospatial", "outbox", "postgres", "copernicus"]
+dependencies = [
+    "fastapi[standard]>=0.136",
+    "uvicorn[standard]>=0.46",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.31",
+    "geoalchemy2>=0.15",
+    "shapely>=2.0",
+    "httpx>=0.28",
+    "pydantic>=2.13",
+    "pydantic-settings>=2.14",
+    "alembic>=1.18",
+    "duckdb>=1.5",
+    "pyarrow>=21.0",
+    "defusedxml>=0.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/aJustDev/geo-hazard"
+Source = "https://github.com/aJustDev/geo-hazard"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-asyncio>=1.3",
+    "pytest-cov>=7.1",
+    "ruff>=0.11",
+    "mypy>=1.20",
+    "testcontainers[postgres]>=4.14",
+    "import-linter>=2.11",
+    "pip-audit>=2.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = ["--strict-markers", "-m", "not integration"]
+markers = [
+    "integration: tests requiring real PostgreSQL/PostGIS via testcontainers",
+]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "TCH", "G", "S"]
+ignore = [
+    "E501",
+    "N818",   # DomainException naming convention (intentional)
+    "B008",   # FastAPI Depends() in defaults
+    # SQLAlchemy 2.0 resolves Mapped[...] annotations at runtime.
+    "UP037",
+    "F821",
+    "TC001",
+    "TC002",
+    "TC003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+"migrations/**" = ["S101"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.mypy]
+python_version = "3.14"
+disallow_untyped_defs = true
+warn_return_any = true
+no_implicit_optional = true
+check_untyped_defs = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+exclude = ["migrations/versions/.*"]
+
+[[tool.mypy.overrides]]
+module = ["geoalchemy2.*", "shapely.*", "asyncpg.*", "testcontainers.*", "pyarrow.*", "defusedxml.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+# FastAPI deriva los tipos de response_model/Depends; anotar cada route es ruido.
+module = ["app.api.*"]
+disallow_untyped_defs = false
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 85
+exclude_also = ["if __name__ == .__main__.:", "if TYPE_CHECKING:", "raise NotImplementedError"]
