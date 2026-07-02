@@ -99,7 +99,7 @@ disallow_untyped_defs = false
 
 [[tool.mypy.overrides]]
 # FastAPI deriva los tipos de response_model/Depends; anotar cada route es ruido.
-module = ["app.api.*"]
+module = ["app.api.*", "app.hazards.api.*"]
 disallow_untyped_defs = false
 
 [tool.coverage.run]
