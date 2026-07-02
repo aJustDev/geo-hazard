@@ -15,7 +15,7 @@ import app.core.db_registry  # noqa: F401 - registra todas las tablas en Base.me
 
 ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
 
-_TABLES = "outbox_events, scheduled_jobs"
+_TABLES = "hazard_events, source_sync_state, outbox_events, scheduled_jobs"
 
 
 @pytest.fixture(scope="session")
