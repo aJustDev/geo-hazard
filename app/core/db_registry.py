@@ -8,3 +8,5 @@ Lo importan `app.main` y `migrations/env.py`.
 import app.core.events.models  # noqa: F401
 import app.core.jobs.handlers  # noqa: F401 - registra los job handlers
 import app.core.jobs.models  # noqa: F401
+import app.hazards.event_handlers.export_geoparquet  # noqa: F401 - registra el handler del outbox
+import app.hazards.models  # noqa: F401
