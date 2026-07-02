@@ -3,11 +3,12 @@ root_packages =
     app
 
 # ---------------------------------------------------------------------------
-# La infraestructura generica de app.core (db, repos, config, jobs, events,
-# exceptions, concurrency) no debe conocer las capas de arriba. Cuando nazcan
-# los contextos de dominio (app.hazards en la fase EFFIS, app.analytics en la
-# fase DuckDB) se anadiran aqui sus contratos: core agnostico del dominio,
-# capas internas de cada contexto, y hazards <-/-> analytics.
+# La infraestructura generica de app.core no debe conocer las capas de arriba
+# ni el dominio. Las unicas aristas core -> hazards permitidas son el wiring:
+# db_registry (composition root que puebla Base.metadata y el dispatcher) y
+# los job handlers por fuente (orquestan la ingesta). Cuando nazca
+# app.analytics (fase DuckDB) se anadira su contrato y el de la frontera
+# hazards <-/-> analytics.
 # ---------------------------------------------------------------------------
 [importlinter:contract:core-sin-dependencias-hacia-arriba]
 name = app.core no importa api, deps ni main
@@ -18,3 +19,33 @@ forbidden_modules =
     app.api
     app.deps
     app.main
+
+[importlinter:contract:core-agnostico-del-dominio]
+name = app.core no importa app.hazards (salvo wiring)
+type = forbidden
+allow_indirect_imports = True
+source_modules =
+    app.core
+forbidden_modules =
+    app.hazards
+ignore_imports =
+    app.core.db_registry -> app.hazards.models
+    app.core.db_registry -> app.hazards.event_handlers.export_geoparquet
+    app.core.jobs.handlers.effis_sync -> app.hazards.repos.hazard_event
+    app.core.jobs.handlers.effis_sync -> app.hazards.repos.sync_state
+    app.core.jobs.handlers.effis_sync -> app.hazards.use_cases.sync_effis
+
+# ---------------------------------------------------------------------------
+# Capas del contexto hazards: una capa solo importa las de abajo.
+# api -> use_cases -> repos -> services -> schemas -> models.
+# ---------------------------------------------------------------------------
+[importlinter:contract:hazards-por-capas]
+name = hazards respeta el orden de capas
+type = layers
+layers =
+    app.hazards.api
+    app.hazards.use_cases
+    app.hazards.repos
+    app.hazards.services
+    app.hazards.schemas
+    app.hazards.models
