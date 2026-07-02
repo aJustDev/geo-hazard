@@ -1,5 +1,9 @@
 # geo-hazard
 
+[![CI](https://github.com/aJustDev/geo-hazard/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aJustDev/geo-hazard/actions/workflows/ci.yml)
+[![Python 3.14](https://img.shields.io/badge/python-3.14-3776ab)](pyproject.toml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 A natural-hazard spatial API for the Iberian Peninsula, built on open European
 data: wildfires from Copernicus EFFIS, earthquakes from the Spanish IGN and
 severe-weather warnings from AEMET.
