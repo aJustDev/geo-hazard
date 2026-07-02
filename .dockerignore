@@ -1,0 +1,31 @@
+# Control de versiones y entorno
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+# Entornos virtuales y artefactos de build
+.venv
+dist
+build
+*.egg-info
+
+# Caches de Python y tooling
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.import_linter_cache
+.coverage
+htmlcov
+
+# No necesario en la imagen de runtime
+tests
+docs
+.github
+docker-compose.yml
+Dockerfile
+.dockerignore
