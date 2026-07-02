@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alert xmlns = "urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.724.0.ES.20260702162803.700602ATTA03191783009683</identifier>
+  <sender>http://www.aemet.es</sender>
+  <sent>2026-07-02T16:28:03-00:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <scope>Public</scope>
+  <references>http://www.aemet.es,2.49.0.0.724.0.ES.20260701084431.700602ATTA02191782895471,2026-07-01T08:44:31-00:00 http://www.aemet.es,2.49.0.0.724.0.ES.20260702091157.700602ATTA03191782983517,2026-07-02T09:11:57-00:00</references>
+  <info>
+    <language>es-ES</language>
+    <category>Met</category>
+    <event>Aviso de temperaturas máximas de nivel naranja</event>
+    <responseType>Monitor</responseType>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>AEMET-Meteoalerta fenomeno</valueName>
+      <value>AT;Temperaturas máximas</value>
+    </eventCode>
+    <effective>2026-07-02T18:28:03+02:00</effective>
+    <onset>2026-07-03T13:00:00+02:00</onset>
+    <expires>2026-07-03T20:59:59+02:00</expires>
+    <senderName>AEMET. Agencia Estatal de Meteorología</senderName>
+    <headline>Aviso de temperaturas máximas de nivel naranja. La Siberia extremeña</headline>
+    <description>Temperatura máxima: 40 ºC.</description>
+    <instruction>Esté preparado. Tome precauciones y manténgase informado de la predicción meteorológica más actualizada. Se pueden producir daños graves a personas y bienes, especialmente a aquellos vulnerables o en zonas expuestas al fenómeno.</instruction>
+    <web>https://www.aemet.es/es/eltiempo/prediccion/avisos</web>
+    <contact>AEMET</contact>
+    <parameter>
+      <valueName>AEMET-Meteoalerta nivel</valueName>
+      <value>naranja</value>
+    </parameter>
+    <parameter>
+      <valueName>AEMET-Meteoalerta parametro</valueName>
+      <value>TA;Temperatura máxima;40 ºC</value>
+    </parameter>
+    <parameter>
+      <valueName>AEMET-Meteoalerta probabilidad</valueName>
+      <value>40%-70%</value>
+    </parameter>
+    <area>
+      <areaDesc>La Siberia extremeña</areaDesc>
+      <polygon>39.14,-5.58 39.19,-5.61 39.21,-5.56 39.2,-5.52 39.16,-5.46 39.16,-5.41 39.17,-5.38 39.25,-5.35 39.26,-5.35 39.33,-5.34 39.3,-5.25 39.32,-5.15 39.34,-5.12 39.39,-5.11 39.39,-5.09 39.36,-5.05 39.37,-4.99 39.4,-4.95 39.4,-4.94 39.37,-4.89 39.42,-4.75 39.45,-4.69 39.42,-4.67 39.35,-4.71 39.33,-4.71 39.32,-4.76 39.21,-4.7 39.17,-4.65 39.19,-4.74 39.2,-4.81 39.15,-4.85 39.1,-4.87 39.06,-4.82 39.03,-4.86 39.06,-4.96 38.98,-4.93 38.93,-4.84 38.88,-4.85 38.89,-4.91 38.85,-4.94 38.79,-4.96 38.74,-4.99 38.73,-5.05 38.72,-5.06 38.75,-5.07 38.77,-5.11 38.83,-5.1 38.87,-5.12 38.89,-5.19 38.93,-5.22 38.93,-5.31 38.9,-5.36 38.9,-5.4 38.94,-5.46 38.92,-5.49 38.99,-5.52 39.0,-5.49 39.04,-5.5 39.08,-5.53 39.09,-5.56 39.14,-5.58</polygon>
+      <geocode>
+        <valueName>AEMET-Meteoalerta zona</valueName>
+        <value>700602</value>
+      </geocode>
+    </area>
+  </info>
+  <info>
+    <language>en-GB</language>
+    <category>Met</category>
+    <event>Severe high-temperature warning</event>
+    <responseType>Monitor</responseType>
+    <urgency>Future</urgency>
+    <severity>Severe</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>AEMET-Meteoalerta fenomeno</valueName>
+      <value>AT;Temperaturas máximas</value>
+    </eventCode>
+    <effective>2026-07-02T18:28:03+02:00</effective>
+    <onset>2026-07-03T13:00:00+02:00</onset>
+    <expires>2026-07-03T20:59:59+02:00</expires>
+    <senderName>AEMET. State Meteorological Agency</senderName>
+    <headline>Severe high-temperature warning. La Siberia extremeña</headline>
+    <description>Maximum temperature: 40 ºC.</description>
+    <instruction>Be prepared. Take precautions and keep up to date with the latest weather forecast. Severe damages to people and properties may occur, especially to those vulnerable or in exposed areas.</instruction>
+    <web>https://www.aemet.es/en/eltiempo/prediccion/avisos</web>
+    <contact>AEMET</contact>
+    <parameter>
+      <valueName>AEMET-Meteoalerta nivel</valueName>
+      <value>naranja</value>
+    </parameter>
+    <parameter>
+      <valueName>AEMET-Meteoalerta parametro</valueName>
+      <value>TA;Maximum temperature;40 ºC</value>
+    </parameter>
+    <parameter>
+      <valueName>AEMET-Meteoalerta probabilidad</valueName>
+      <value>40%-70%</value>
+    </parameter>
+    <area>
+      <areaDesc>La Siberia extremeña</areaDesc>
+      <polygon>39.14,-5.58 39.19,-5.61 39.21,-5.56 39.2,-5.52 39.16,-5.46 39.16,-5.41 39.17,-5.38 39.25,-5.35 39.26,-5.35 39.33,-5.34 39.3,-5.25 39.32,-5.15 39.34,-5.12 39.39,-5.11 39.39,-5.09 39.36,-5.05 39.37,-4.99 39.4,-4.95 39.4,-4.94 39.37,-4.89 39.42,-4.75 39.45,-4.69 39.42,-4.67 39.35,-4.71 39.33,-4.71 39.32,-4.76 39.21,-4.7 39.17,-4.65 39.19,-4.74 39.2,-4.81 39.15,-4.85 39.1,-4.87 39.06,-4.82 39.03,-4.86 39.06,-4.96 38.98,-4.93 38.93,-4.84 38.88,-4.85 38.89,-4.91 38.85,-4.94 38.79,-4.96 38.74,-4.99 38.73,-5.05 38.72,-5.06 38.75,-5.07 38.77,-5.11 38.83,-5.1 38.87,-5.12 38.89,-5.19 38.93,-5.22 38.93,-5.31 38.9,-5.36 38.9,-5.4 38.94,-5.46 38.92,-5.49 38.99,-5.52 39.0,-5.49 39.04,-5.5 39.08,-5.53 39.09,-5.56 39.14,-5.58</polygon>
+      <geocode>
+        <valueName>AEMET-Meteoalerta zona</valueName>
+        <value>700602</value>
+      </geocode>
+    </area>
+  </info>
+</alert>
