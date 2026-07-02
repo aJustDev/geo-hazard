@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Lint (ruff)
+        run: uv run ruff check .
+      - name: Format (ruff)
+        run: uv run ruff format --check .
+      - name: Types (mypy)
+        run: uv run mypy app
+      - name: Architecture (import-linter)
+        run: uv run lint-imports
+      - name: Dependency audit (pip-audit)
+        run: uv run pip-audit
+        continue-on-error: true
+      - name: Dockerfile lint (hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --locked
+      # La cobertura se mide sobre las DOS suites juntas: los bucles de los
+      # workers solo se ejercitan contra Postgres real. El gate (fail_under=85,
+      # pyproject) lo aplica el `coverage report` final.
+      - name: Unit tests
+        run: uv run pytest --cov=app --cov-report= --cov-fail-under=0
+      - name: Integration tests (testcontainers PostGIS)
+        run: uv run pytest -m integration --cov=app --cov-append --cov-report= --cov-fail-under=0
+      - name: Coverage gate
+        run: uv run coverage report --show-missing
