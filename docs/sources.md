@@ -10,11 +10,23 @@ Facts captured against the live services on 2026-07-02. Fixtures under
   parameter is mandatory for the fire layers.
 - Layers of interest (per the EFFIS data-and-services catalog): active fires
   MODIS/VIIRS (last 1/7/30 days) and burnt areas (updated in near real time).
-- **Pending capture**: the map server was unresponsive during the spike
-  (GetCapabilities timed out on `maps.effis.emergency.copernicus.eu` and on
-  the `maps.wild-fire.eu` mirror). Exact WFS feature type names, GeoJSON
-  output format and conditional-GET support are still to be verified against
-  a live response. No driver code before that.
+- **Captured 2026-07-02 (evening)**, the hard way:
+  - The server **hangs indefinitely on requests without a browser-like
+    `User-Agent`** (and on HTTP/2). With a UA over HTTP/1.1 it answers
+    instantly. The HTTP driver must always send a UA.
+  - WMS GetCapabilities works and lists the feature layers. Of interest:
+    hotspots `viirs.hs`, `modis.hs`, `noaa.hs`, `all.hs`; burnt areas
+    `effis.nrt.ba` / `effis.nrt.ba.point` / `effis.nrt.ba.poly`; historical
+    `modis.ba.*` (per year/month/week/today variants).
+  - WFS: version **2.0.0 returns 502** and 1.1.0 hangs; version **1.0.0
+    works** (`typename=`, `maxFeatures=`) and accepts `outputFormat=geojson`.
+- **Pending capture**: a real GeoJSON feature payload. On capture day the
+  layer backends were failing server-side (`msPostGISLayerGetItems(): Query
+error` on the `ba` layers, timeouts on the `hs` layers), so the property
+  schema (field names for the detection date, area, etc.) is still unknown.
+  The HTTP adapter is blocked on that sample; the rest of the pipeline runs
+  against the fake driver. Retry:
+  `curl --http1.1 -A "Mozilla/5.0 ..." "https://maps.effis.emergency.copernicus.eu/effis?service=WFS&version=1.0.0&request=GetFeature&typename=effis.nrt.ba.poly&maxFeatures=2&outputFormat=geojson"`
 
 ## IGN (earthquakes)
 
