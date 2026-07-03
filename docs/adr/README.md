@@ -18,3 +18,4 @@ Context / Decision / Consequences sections.
 | [0011](0011-metric-queries-prefilter-refine-dbscan.md) | Metric queries: GiST prefilter + refine, DBSCAN clusters | Accepted | 2026-07-03 |
 | [0012](0012-analytics-plane-reads-only-geoparquet.md)  | The analytics plane reads only GeoParquet                | Accepted | 2026-07-03 |
 | [0013](0013-committed-cnig-provinces-reference.md)     | Committed CNIG provinces reference                       | Accepted | 2026-07-03 |
+| [0014](0014-push-to-deploy-restricted-ssh-key.md)      | Push-to-deploy over a command-restricted SSH key         | Accepted | 2026-07-03 |
