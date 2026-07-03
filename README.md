@@ -41,6 +41,12 @@ DuckDB over GeoParquet as the analytical plane. Python 3.14, managed with uv.
   [IGN](https://www.ign.es/web/ign/portal/sis-area-sismicidad), the Spanish
   national geographic institute.
 - Weather warnings: [AEMET OpenData](https://opendata.aemet.es/), (c) AEMET.
+- Provincial boundaries: derived from the CNIG/IGN administrative units
+  ("lineas limite",
+  [Centro de Descargas del CNIG](https://centrodedescargas.cnig.es/)),
+  (c) Instituto Geografico Nacional, CC BY 4.0. A simplified snapshot is
+  committed at `data/reference/` and regenerated with
+  `scripts/build_provinces_reference.py`.
 
 ## License
 
