@@ -24,6 +24,7 @@ Facts captured against the live services on 2026-07-02. Fixtures under
   layer backends were failing server-side (`msPostGISLayerGetItems(): Query
 error` on the `ba` layers, timeouts on the `hs` layers), so the property
   schema (field names for the detection date, area, etc.) is still unknown.
+  Retried 2026-07-03: same server-side SQL error on `ba`, timeouts on `hs`.
   The HTTP adapter is blocked on that sample; the rest of the pipeline runs
   against the fake driver. Retry:
   `curl --http1.1 -A "Mozilla/5.0 ..." "https://maps.effis.emergency.copernicus.eu/effis?service=WFS&version=1.0.0&request=GetFeature&typename=effis.nrt.ba.poly&maxFeatures=2&outputFormat=geojson"`
@@ -36,6 +37,10 @@ error` on the `ba` layers, timeouts on the `hs` layers), so the property
   `geo:lat` / `geo:long` (WGS84), and the magnitude, region name and local
   date-time embedded in the Spanish `description` text. Depth is not
   published in the feed.
+- **Timezone doctrine**: the embedded date-time carries no timezone marker;
+  per the capture-day check it is local (peninsular official) time. The
+  parser interprets it as `Europe/Madrid` and converts to UTC, keeping the
+  raw string in `attrs` so the interpretation can be audited or corrected.
 - Fixture: `tests/fixtures/ign/georss_ultimos_10_dias.xml` (full response).
 
 ## AEMET (severe-weather warnings)
