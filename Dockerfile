@@ -37,8 +37,9 @@ COPY --from=builder /build/.venv /build/.venv
 # app importable via PYTHONPATH=/app (no se instala el proyecto en el venv).
 COPY . .
 
+# -m: duckdb necesita un home real para ~/.duckdb (extensiones).
 RUN groupadd -g 1000 appgroup \
- && useradd -u 1000 -g appgroup -s /usr/sbin/nologin appuser \
+ && useradd -m -u 1000 -g appgroup -s /usr/sbin/nologin appuser \
  && chown -R appuser:appgroup /app \
  # Mountpoint del volumen de datos: el volumen nombrado copia esta propiedad
  # en su primer uso, y el check de arranque exige DATA_DIR escribible.
@@ -46,6 +47,12 @@ RUN groupadd -g 1000 appgroup \
  && chown -R appuser:appgroup /data
 
 USER appuser
+
+# La extension spatial se hornea en la imagen: ni el export de snapshots ni
+# el motor analitico dependen de la red en runtime, y una extension
+# indisponible rompe el build, no el primer evento del outbox.
+RUN python -c "import duckdb; duckdb.connect().execute('INSTALL spatial')"
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
