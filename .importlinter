@@ -34,6 +34,12 @@ ignore_imports =
     app.core.jobs.handlers.effis_sync -> app.hazards.repos.hazard_event
     app.core.jobs.handlers.effis_sync -> app.hazards.repos.sync_state
     app.core.jobs.handlers.effis_sync -> app.hazards.use_cases.sync_effis
+    app.core.jobs.handlers.ign_sync -> app.hazards.repos.hazard_event
+    app.core.jobs.handlers.ign_sync -> app.hazards.repos.sync_state
+    app.core.jobs.handlers.ign_sync -> app.hazards.use_cases.sync_ign
+    app.core.jobs.handlers.aemet_sync -> app.hazards.repos.hazard_event
+    app.core.jobs.handlers.aemet_sync -> app.hazards.repos.sync_state
+    app.core.jobs.handlers.aemet_sync -> app.hazards.use_cases.sync_aemet
 
 # ---------------------------------------------------------------------------
 # Capas del contexto hazards: una capa solo importa las de abajo.
