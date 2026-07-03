@@ -15,5 +15,7 @@ check() {
 check "app/hazards/use_cases/*" 90
 check "app/hazards/repos/*" 85
 check "app/hazards/services/*" 85
+check "app/analytics/use_cases/*" 90
+check "app/analytics/queries/*" 85
 
 echo "OK: todos los targets por modulo cumplidos"
