@@ -1,0 +1,51 @@
+name: Deploy
+
+# Se dispara cuando el workflow `CI` termina sobre `main`.
+# `conclusion == 'success'` aborta si CI fue rojo: el deploy nunca recibe un
+# commit que rompe lint/tests. La variable GEOHAZARD_DEPLOY_ENABLED es el
+# interruptor general: en 'false' hasta que el DNS y el servidor esten listos.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy-geohazard
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && vars.GEOHAZARD_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.GEOHAZARD_DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H -p "${{ secrets.GEOHAZARD_DEPLOY_PORT }}" \
+            "${{ secrets.GEOHAZARD_DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Trigger deploy
+        # No se pasa comando: la clave esta restringida en el servidor a un
+        # unico script de deploy, asi que SSH lo ejecuta y devuelve su exit code.
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+            -o StrictHostKeyChecking=yes \
+            -p "${{ secrets.GEOHAZARD_DEPLOY_PORT }}" \
+            "${{ secrets.GEOHAZARD_DEPLOY_USER }}@${{ secrets.GEOHAZARD_DEPLOY_HOST }}"
+
+      - name: Smoke test (publico via reverse proxy)
+        run: |
+          for i in $(seq 1 10); do
+            if curl -fsS -o /dev/null https://geohazard.ajustino.dev/v1/health/liveness; then
+              echo "OK on attempt $i"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "FAIL: liveness no respondio en 30s"
+          exit 1
