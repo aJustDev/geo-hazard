@@ -21,13 +21,14 @@ forbidden_modules =
     app.main
 
 [importlinter:contract:core-agnostico-del-dominio]
-name = app.core no importa app.hazards (salvo wiring)
+name = app.core no importa app.hazards ni app.analytics (salvo wiring)
 type = forbidden
 allow_indirect_imports = True
 source_modules =
     app.core
 forbidden_modules =
     app.hazards
+    app.analytics
 ignore_imports =
     app.core.db_registry -> app.hazards.models
     app.core.db_registry -> app.hazards.event_handlers.export_geoparquet
@@ -55,3 +56,42 @@ layers =
     app.hazards.services
     app.hazards.schemas
     app.hazards.models
+
+# ---------------------------------------------------------------------------
+# Capas del contexto analytics: api -> use_cases -> queries -> engine.
+# paths y schemas son hojas compartidas al fondo.
+# ---------------------------------------------------------------------------
+[importlinter:contract:analytics-por-capas]
+name = analytics respeta el orden de capas
+type = layers
+layers =
+    app.analytics.api
+    app.analytics.use_cases
+    app.analytics.queries
+    app.analytics.engine
+    app.analytics.paths
+    app.analytics.schemas
+
+# ---------------------------------------------------------------------------
+# Frontera de planos (ADR-0012). analytics SOLO lee GeoParquet: prohibido
+# tocar Postgres (db/repo), los workers o el dominio hazards. Y los planos
+# no se conocen entre si: la unica interfaz es el layout de los parquet.
+# ---------------------------------------------------------------------------
+[importlinter:contract:analytics-solo-parquet]
+name = analytics no toca postgres ni los workers
+type = forbidden
+source_modules =
+    app.analytics
+forbidden_modules =
+    app.core.db
+    app.core.db_registry
+    app.core.repo
+    app.core.events
+    app.core.jobs
+
+[importlinter:contract:planos-independientes]
+name = hazards y analytics no se importan entre si
+type = independence
+modules =
+    app.hazards
+    app.analytics
