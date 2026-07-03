@@ -35,8 +35,32 @@ class EventFeatureCollection(BaseSchema):
     nextCursor: str | None = None  # noqa: N815
 
 
+class NearEventProperties(EventProperties):
+    # Metros desde el punto de consulta; al borde si el evento es poligonal.
+    distance_m: float
+
+
+class NearEventFeature(BaseSchema):
+    type: Literal["Feature"] = "Feature"
+    id: uuid.UUID
+    geometry: dict[str, Any]
+    properties: NearEventProperties
+
+
+class NearEventFeatureCollection(BaseSchema):
+    """Sin nextCursor: una consulta de radio devuelve los N mas cercanos,
+    no un listado paginable (ADR-0011)."""
+
+    type: Literal["FeatureCollection"] = "FeatureCollection"
+    features: list[NearEventFeature]
+    numberReturned: int  # noqa: N815
+
+
 __all__ = [
     "EventFeature",
     "EventFeatureCollection",
     "EventProperties",
+    "NearEventFeature",
+    "NearEventFeatureCollection",
+    "NearEventProperties",
 ]
