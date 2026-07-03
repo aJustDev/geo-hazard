@@ -1,8 +1,9 @@
 import uuid
+from collections.abc import Collection
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import String, and_, func, literal, literal_column, select, tuple_
+from sqlalchemy import String, and_, func, literal, literal_column, or_, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.core.repo import BaseRepo
@@ -24,6 +25,10 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
         evento de lote (ADR-0008). El RETURNING usa el truco `xmax = 0`: en
         Postgres una fila recien insertada no tiene version previa (xmax 0),
         una actualizada si; las filas saltadas por el WHERE no se devuelven.
+
+        El OR sobre ends_at es la contraparte de close_events (ADR-0010): si
+        la fuente re-sirve abierto un evento que nosotros cerramos, la fuente
+        manda y la fila se reabre aunque su contenido no haya cambiado.
         """
         if not rows:
             return (0, 0)
@@ -35,13 +40,40 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
                 **{col: getattr(stmt.excluded, col) for col in _UPDATABLE},
                 "updated_at": func.now(),
             },
-            where=HazardEventORM.content_hash.is_distinct_from(stmt.excluded.content_hash),
+            where=or_(
+                HazardEventORM.content_hash.is_distinct_from(stmt.excluded.content_hash),
+                HazardEventORM.ends_at.is_distinct_from(stmt.excluded.ends_at),
+            ),
         ).returning(literal_column("(xmax = 0)").label("inserted"))
 
         result = await self.session.execute(upsert)
         flags = [row.inserted for row in result]
         inserted = sum(flags)
         return (inserted, len(flags) - inserted)
+
+    async def close_events(
+        self, *, source: str, external_ids: Collection[str], ended_at: datetime
+    ) -> int:
+        """Acota la ventana de vigencia: ends_at = ended_at para esos ids.
+
+        Solo toca filas aun "abiertas" a esa hora (ends_at NULL o posterior):
+        un aviso ya expirado conserva su expires original. Idempotente por
+        construccion; devuelve cuantas filas cerro de verdad.
+        """
+        if not external_ids:
+            return 0
+        stmt = (
+            update(HazardEventORM)
+            .where(
+                HazardEventORM.source == source,
+                HazardEventORM.external_id.in_(external_ids),
+                or_(HazardEventORM.ends_at.is_(None), HazardEventORM.ends_at > ended_at),
+            )
+            .values(ends_at=ended_at, updated_at=func.now())
+            .returning(HazardEventORM.id)
+        )
+        result = await self.session.execute(stmt)
+        return len(result.scalars().all())
 
     async def list_page(
         self,
