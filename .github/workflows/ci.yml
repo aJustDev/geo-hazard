@@ -50,3 +50,5 @@ jobs:
         run: uv run pytest -m integration --cov=app --cov-append --cov-report= --cov-fail-under=0
       - name: Coverage gate
         run: uv run coverage report --show-missing
+      - name: Coverage targets per layer
+        run: bash scripts/check-coverage-targets.sh
