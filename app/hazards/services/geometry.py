@@ -15,6 +15,10 @@ from shapely.geometry import Point, Polygon, mapping, shape
 from shapely.validation import make_valid
 
 SRID_WGS84 = 4326
+# ETRS89 / UTM huso 30N: el CRS metrico de las operaciones espaciales
+# (radios, areas, clustering). Nunca se almacena: se proyecta el PARAMETRO
+# al vuelo dentro de la consulta (ADR-0005).
+SRID_ETRS89_UTM30 = 25830
 
 
 def point_to_wkb(*, latitude: float, longitude: float) -> WKBElement:
@@ -83,7 +87,9 @@ def _to_lists(coordinates: Any) -> Any:
 
 
 __all__ = [
+    "SRID_ETRS89_UTM30",
     "SRID_WGS84",
+    "cap_polygon_to_wkb",
     "geojson_to_wkb",
     "point_to_wkb",
     "validate_bbox",
