@@ -21,6 +21,8 @@ dependencies = [
     "duckdb>=1.5",
     "pyarrow>=21.0",
     "defusedxml>=0.7",
+    # zoneinfo necesita una base tzdata; la imagen slim de Docker no la trae.
+    "tzdata>=2025.2",
 ]
 
 [project.urls]
