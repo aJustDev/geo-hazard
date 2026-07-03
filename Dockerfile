@@ -39,7 +39,11 @@ COPY . .
 
 RUN groupadd -g 1000 appgroup \
  && useradd -u 1000 -g appgroup -s /usr/sbin/nologin appuser \
- && chown -R appuser:appgroup /app
+ && chown -R appuser:appgroup /app \
+ # Mountpoint del volumen de datos: el volumen nombrado copia esta propiedad
+ # en su primer uso, y el check de arranque exige DATA_DIR escribible.
+ && mkdir -p /data/exports \
+ && chown -R appuser:appgroup /data
 
 USER appuser
 EXPOSE 8000

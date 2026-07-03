@@ -1,0 +1,106 @@
+# Compose de PRODUCCION (el de desarrollo es docker-compose.yml).
+# Todo escucha solo en 127.0.0.1: el reverse proxy del host es quien expone
+# la API al exterior. Limites de memoria explicitos: el servidor es pequeno
+# y compartido, y DuckDB/Postgres asumen por defecto que la maquina es suya.
+
+name: geohazard
+
+services:
+  db:
+    image: postgis/postgis:17-3.5
+    container_name: geohazard-db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=50"
+      - "-c"
+      - "shared_buffers=256MB"
+    mem_limit: 768m
+    ports:
+      - "127.0.0.1:5436:5432"
+    volumes:
+      - geohazard_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      geohazard-net:
+        aliases: [db]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  migrate:
+    image: geohazard:prod
+    container_name: geohazard-migrate
+    build:
+      context: .
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["alembic"]
+    command: ["upgrade", "head"]
+    restart: "no"
+    networks:
+      geohazard-net:
+        aliases: [migrate]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    image: geohazard:prod
+    container_name: geohazard-api
+    build:
+      context: .
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DATA_DIR: /data
+    # 1g cubre uvicorn + el memory_limit de 512MB del motor DuckDB.
+    mem_limit: 1g
+    ports:
+      - "127.0.0.1:8002:8000"
+    volumes:
+      # Los snapshots GeoParquet sobreviven a los redeploys: son la historia
+      # acumulada de fuentes que solo sirven ventanas rodantes (ADR-0007).
+      - geohazard_data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    networks:
+      geohazard-net:
+        aliases: [api]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  geohazard_pgdata:
+  geohazard_data:
+
+networks:
+  geohazard-net:
+    name: geohazard-net
