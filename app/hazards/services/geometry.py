@@ -11,13 +11,38 @@ from typing import Any
 
 from geoalchemy2.elements import WKBElement
 from geoalchemy2.shape import from_shape, to_shape
-from shapely.geometry import Point, mapping, shape
+from shapely.geometry import Point, Polygon, mapping, shape
+from shapely.validation import make_valid
 
 SRID_WGS84 = 4326
 
 
 def point_to_wkb(*, latitude: float, longitude: float) -> WKBElement:
     return from_shape(Point(longitude, latitude), srid=SRID_WGS84)
+
+
+def cap_polygon_to_wkb(polygon: str) -> WKBElement:
+    """Poligono CAP de AEMET ("lat,lon lat,lon ...") -> WKB.
+
+    CAP publica cada vertice en (lat, lon), el orden INVERSO a GeoJSON/WKB;
+    el swap ocurre solo aqui, como manda la doctrina del modulo.
+    """
+    points: list[tuple[float, float]] = []
+    for pair in polygon.split():
+        lat_text, _, lon_text = pair.partition(",")
+        if not lon_text:
+            raise ValueError(f"malformed CAP polygon vertex: {pair!r}")
+        points.append((float(lon_text), float(lat_text)))
+    if len(points) < 4:
+        raise ValueError("CAP polygon needs at least 4 vertices (closed ring)")
+    geom = Polygon(points)
+    if not geom.is_valid:
+        # Las zonas de aviso estan digitalizadas a mano; un anillo que se
+        # auto-toca se repara en vez de descartar el aviso entero.
+        geom = make_valid(geom)
+    if geom.is_empty:
+        raise ValueError("CAP polygon repaired to an empty geometry")
+    return from_shape(geom, srid=SRID_WGS84)
 
 
 def geojson_to_wkb(geometry: dict[str, Any]) -> WKBElement:
