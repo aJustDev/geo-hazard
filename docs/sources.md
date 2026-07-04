@@ -5,29 +5,40 @@ Facts captured against the live services on 2026-07-02. Fixtures under
 
 ## EFFIS (wildfires)
 
-- Base URL (OGC WMS/WFS): `https://maps.effis.emergency.copernicus.eu/effis`
-- Per the official downloads instructions: standard OGC services; the `TIME`
-  parameter is mandatory for the fire layers.
-- Layers of interest (per the EFFIS data-and-services catalog): active fires
-  MODIS/VIIRS (last 1/7/30 days) and burnt areas (updated in near real time).
-- **Captured 2026-07-02 (evening)**, the hard way:
-  - The server **hangs indefinitely on requests without a browser-like
-    `User-Agent`** (and on HTTP/2). With a UA over HTTP/1.1 it answers
-    instantly. The HTTP driver must always send a UA.
-  - WMS GetCapabilities works and lists the feature layers. Of interest:
-    hotspots `viirs.hs`, `modis.hs`, `noaa.hs`, `all.hs`; burnt areas
-    `effis.nrt.ba` / `effis.nrt.ba.point` / `effis.nrt.ba.poly`; historical
-    `modis.ba.*` (per year/month/week/today variants).
-  - WFS: version **2.0.0 returns 502** and 1.1.0 hangs; version **1.0.0
-    works** (`typename=`, `maxFeatures=`) and accepts `outputFormat=geojson`.
-- **Pending capture**: a real GeoJSON feature payload. On capture day the
-  layer backends were failing server-side (`msPostGISLayerGetItems(): Query
-error` on the `ba` layers, timeouts on the `hs` layers), so the property
-  schema (field names for the detection date, area, etc.) is still unknown.
-  Retried 2026-07-03: same server-side SQL error on `ba`, timeouts on `hs`.
-  The HTTP adapter is blocked on that sample; the rest of the pipeline runs
-  against the fake driver. Retry:
-  `curl --http1.1 -A "Mozilla/5.0 ..." "https://maps.effis.emergency.copernicus.eu/effis?service=WFS&version=1.0.0&request=GetFeature&typename=effis.nrt.ba.poly&maxFeatures=2&outputFormat=geojson"`
+- Base URL (OGC WMS/WFS): `https://maps.effis.emergency.copernicus.eu/gwis`
+  (see history below: the `/effis` mapfile we tried first has broken NRT
+  layers; the EFFIS current-situation viewer is fed from `/gwis`).
+- Transport quirks (both mapfiles): the server **hangs indefinitely on
+  requests without a browser-like `User-Agent`** (and on HTTP/2). WFS
+  **2.0.0 returns 502**, 1.1.0 hangs; **1.0.0 works** (`typename=`,
+  `maxFeatures=`, `bbox=`) and accepts `outputFormat=geojson`. The HTTP
+  driver must always send a UA over HTTP/1.1.
+- **Working layers, captured 2026-07-04** (WFS 1.0.0 on `/gwis`):
+  - Burnt areas (near real time): `nrt.ba.poly.{today,week,month,season}`.
+    Properties: `id`, `fire_id` (stable), `initialdate`, `finaldate`,
+    `area` (ha). The rolling window is resolved server-side by the layer
+    name; the `TIME` parameter is silently ignored on WFS.
+  - Hotspots: `all.hs.{today,week,month,season}` (union of sensors; also
+    per-sensor `modis.hs.*`, `viirs.hs.*`, `s3.hs.*` but several of those
+    time out intermittently). Properties: `id`, `acq_at`, `CLASS`.
+  - **Axis-order gotcha**: the GeoJSON output serializes coordinates as
+    `[lat, lon]` (inverted, like AEMET CAP polygons). The `bbox=` request
+    parameter, however, is interpreted in normal `minLon,minLat,maxLon,
+maxLat` order. Swap on ingest.
+  - Attribute-rich archives exist (`viirs.hs.query`: `frp`, `confidence`,
+    `satellite`...) but they span the full history since 2019 and any
+    date `FILTER` on them times out; not usable for sync.
+- Fixtures (real responses, Iberia bbox `-10,35,5,44`, captured 2026-07-04):
+  `tests/fixtures/effis/nrt_ba_poly_week_iberia.geojson` (84 features),
+  `tests/fixtures/effis/all_hs_week_iberia.geojson` (40 features,
+  `maxFeatures=40`). Capture command:
+  `curl --http1.1 -A "Mozilla/5.0 ..." "https://maps.effis.emergency.copernicus.eu/gwis?service=WFS&version=1.0.0&request=GetFeature&typename=nrt.ba.poly.week&outputFormat=geojson&bbox=-10,35,5,44"`
+- History (2026-07-02/03): on the `/effis` mapfile the NRT burnt-area layers
+  (`effis.nrt.ba.*`) fail server-side with `msPostGISLayerGetItems(): Query
+error` and the plain hotspot layers time out; only the historical
+  `modis.ba.poly[.year|.week|...]` family answers there. That mapfile also
+  lacks the `nrt.ba.*` family entirely. Both facts still true on
+  2026-07-04; the blocker was the mapfile choice, not the service.
 
 ## IGN (earthquakes)
 
