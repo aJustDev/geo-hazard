@@ -55,7 +55,8 @@ async def test_mapeo_de_filas() -> None:
     assert golfo["hazard_type"] == "earthquake"
     assert golfo["external_id"] == "fake-eq-1"
     assert golfo["severity"] == 2  # magnitud 3.5
-    assert golfo["ends_at"] is None  # un sismo es puntual, sin ventana
+    # Un sismo es puntual: su ventana es su propio instante (ADR-0016).
+    assert golfo["ends_at"] == golfo["starts_at"]
     assert golfo["attrs"]["magnitude"] == 3.5
     assert golfo["attrs"]["region"] == "GOLFO DE CADIZ"
     assert len(golfo["content_hash"]) == 64

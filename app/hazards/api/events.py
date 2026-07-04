@@ -31,7 +31,10 @@ async def list_events(
     severity_min: Annotated[int | None, Query(ge=1, le=4)] = None,
     starts_after: Annotated[datetime | None, Query()] = None,
     starts_before: Annotated[datetime | None, Query()] = None,
-    active: Annotated[bool | None, Query(description="only events in force now")] = None,
+    active: Annotated[
+        bool | None,
+        Query(description="only events in force now: open-ended or with a window covering now"),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
     cursor: Annotated[str | None, Query()] = None,
 ):
@@ -64,7 +67,10 @@ async def near_events(
     severity_min: Annotated[int | None, Query(ge=1, le=4)] = None,
     starts_after: Annotated[datetime | None, Query()] = None,
     starts_before: Annotated[datetime | None, Query()] = None,
-    active: Annotated[bool | None, Query(description="only events in force now")] = None,
+    active: Annotated[
+        bool | None,
+        Query(description="only events in force now: open-ended or with a window covering now"),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=1000)] = 100,
 ):
     use_case = NearEventsUseCase(repo=repo)
@@ -92,7 +98,10 @@ async def cluster_events(
     severity_min: Annotated[int | None, Query(ge=1, le=4)] = None,
     starts_after: Annotated[datetime | None, Query()] = None,
     starts_before: Annotated[datetime | None, Query()] = None,
-    active: Annotated[bool | None, Query(description="only events in force now")] = None,
+    active: Annotated[
+        bool | None,
+        Query(description="only events in force now: open-ended or with a window covering now"),
+    ] = None,
 ):
     use_case = ClusterEventsUseCase(repo=repo)
     return await use_case.execute(

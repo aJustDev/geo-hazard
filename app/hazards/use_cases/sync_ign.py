@@ -60,8 +60,9 @@ class SyncIgnUseCase:
             "geom": point_to_wkb(latitude=record.latitude, longitude=record.longitude),
             "severity": ign_severity(magnitude=record.magnitude),
             "starts_at": record.occurred_at,
-            # Un sismo es un evento puntual: sin ventana de vigencia.
-            "ends_at": None,
+            # Un sismo es un evento puntual: su ventana es el propio instante
+            # (ADR-0016), asi que nunca cuenta como "vigente ahora".
+            "ends_at": record.occurred_at,
             "attrs": attrs,
             # El hash cubre lo que el IGN revisa a posteriori: epicentro,
             # magnitud (dentro de attrs) y hora del evento.

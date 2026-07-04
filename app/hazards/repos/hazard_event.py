@@ -54,13 +54,15 @@ def _apply_filters(
     if starts_before is not None:
         stmt = stmt.where(HazardEventORM.starts_at <= starts_before)
     if active:
-        # "Vigente ahora": solo tiene sentido para eventos con ventana.
+        # "Vigente ahora" (ADR-0016): ya empezo y sigue abierto (ends_at NULL
+        # = la fuente aun lo sirve) o su ventana cubre este instante. Los
+        # eventos puntuales (sismos, hotspots) tienen ends_at = starts_at,
+        # asi que nunca cuentan como vigentes.
         now = datetime.now(UTC)
         stmt = stmt.where(
             and_(
-                HazardEventORM.ends_at.is_not(None),
                 HazardEventORM.starts_at <= now,
-                HazardEventORM.ends_at >= now,
+                or_(HazardEventORM.ends_at.is_(None), HazardEventORM.ends_at >= now),
             )
         )
     return stmt

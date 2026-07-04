@@ -59,7 +59,7 @@ async def test_pipeline_completo_effis(
                 select(OutboxEventORM).where(OutboxEventORM.event_type == "hazards.batch_ingested")
             )
         ).scalar_one()
-        assert event.payload == {"source": "effis", "inserted": 2, "updated": 0}
+        assert event.payload == {"source": "effis", "inserted": 2, "updated": 0, "closed": 0}
 
     # 2. El worker del outbox despacha el evento -> snapshot GeoParquet.
     await OutboxWorker()._process_batch()
