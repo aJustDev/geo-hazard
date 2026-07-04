@@ -20,3 +20,4 @@ Context / Decision / Consequences sections.
 | [0013](0013-committed-cnig-provinces-reference.md)     | Committed CNIG provinces reference                       | Accepted | 2026-07-03 |
 | [0014](0014-push-to-deploy-restricted-ssh-key.md)      | Push-to-deploy over a command-restricted SSH key         | Accepted | 2026-07-03 |
 | [0015](0015-effis-http-adapter-gwis-mapfile.md)        | EFFIS HTTP adapter reads the gwis mapfile                | Accepted | 2026-07-04 |
+| [0016](0016-event-lifecycle-active-semantics.md)      | Per-source event lifecycle and active semantics          | Accepted | 2026-07-04 |
