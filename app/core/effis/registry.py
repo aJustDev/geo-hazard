@@ -27,12 +27,9 @@ class _EffisClientRegistry:
             from app.core.effis.drivers.fake import EffisFakeClient
 
             return EffisFakeClient()
-        # Bloqueado en la captura del payload real del WFS (docs/sources.md):
-        # el backend de capas del JRC fallaba el dia del spike y el esquema de
-        # propiedades sigue sin verificar. Sin muestra real, no hay parser.
-        raise NotImplementedError(
-            "EFFIS_DRIVER='http' pending real WFS payload capture; see docs/sources.md"
-        )
+        from app.core.effis.drivers.http import EffisHttpClient
+
+        return EffisHttpClient()
 
 
 effis_client_registry = _EffisClientRegistry()
