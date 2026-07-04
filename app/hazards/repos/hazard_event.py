@@ -26,6 +26,11 @@ from app.hazards.services.geometry import SRID_ETRS89_UTM30, SRID_WGS84
 # Columnas que un upsert puede refrescar cuando el contenido cambia de verdad.
 _UPDATABLE = ("hazard_type", "geom", "severity", "starts_at", "ends_at", "attrs", "content_hash")
 
+# asyncpg limita cada sentencia a 32767 argumentos. Con ~9 columnas por fila,
+# un lote de EFFIS en temporada de incendios (~8k hotspots) lo revienta; se
+# trocea con margen holgado para que el limite sea inalcanzable.
+_UPSERT_CHUNK_ROWS = 1000
+
 
 def _apply_filters(
     stmt: Select[Any],
@@ -76,27 +81,33 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
         El OR sobre ends_at es la contraparte de close_events (ADR-0010): si
         la fuente re-sirve abierto un evento que nosotros cerramos, la fuente
         manda y la fila se reabre aunque su contenido no haya cambiado.
+
+        El lote se ejecuta en trozos de _UPSERT_CHUNK_ROWS por el limite de
+        argumentos de asyncpg; los trozos comparten transaccion, asi que el
+        lote sigue siendo atomico para quien llama.
         """
-        if not rows:
-            return (0, 0)
+        inserted = 0
+        updated = 0
+        for start in range(0, len(rows), _UPSERT_CHUNK_ROWS):
+            chunk = rows[start : start + _UPSERT_CHUNK_ROWS]
+            stmt = pg_insert(HazardEventORM).values(chunk)
+            upsert = stmt.on_conflict_do_update(  # type: ignore[var-annotated]
+                index_elements=["source", "external_id"],
+                set_={
+                    **{col: getattr(stmt.excluded, col) for col in _UPDATABLE},
+                    "updated_at": func.now(),
+                },
+                where=or_(
+                    HazardEventORM.content_hash.is_distinct_from(stmt.excluded.content_hash),
+                    HazardEventORM.ends_at.is_distinct_from(stmt.excluded.ends_at),
+                ),
+            ).returning(literal_column("(xmax = 0)").label("inserted"))
 
-        stmt = pg_insert(HazardEventORM).values(rows)
-        upsert = stmt.on_conflict_do_update(  # type: ignore[var-annotated]
-            index_elements=["source", "external_id"],
-            set_={
-                **{col: getattr(stmt.excluded, col) for col in _UPDATABLE},
-                "updated_at": func.now(),
-            },
-            where=or_(
-                HazardEventORM.content_hash.is_distinct_from(stmt.excluded.content_hash),
-                HazardEventORM.ends_at.is_distinct_from(stmt.excluded.ends_at),
-            ),
-        ).returning(literal_column("(xmax = 0)").label("inserted"))
-
-        result = await self.session.execute(upsert)
-        flags = [row.inserted for row in result]
-        inserted = sum(flags)
-        return (inserted, len(flags) - inserted)
+            result = await self.session.execute(upsert)
+            flags = [row.inserted for row in result]
+            inserted += sum(flags)
+            updated += len(flags) - sum(flags)
+        return (inserted, updated)
 
     async def close_events(
         self, *, source: str, external_ids: Collection[str], ended_at: datetime
