@@ -1,0 +1,11 @@
+[Unit]
+Description=Ejecuta el backup de geo-hazard a diario
+
+[Timer]
+OnCalendar=daily
+# Persistent: si la maquina estaba apagada a la hora, lo lanza al arrancar.
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

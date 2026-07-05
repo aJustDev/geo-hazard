@@ -1,0 +1,12 @@
+[Unit]
+Description=geo-hazard daily backup (pg_dump + volumen de datos)
+Documentation=https://github.com/aJustDev/geo-hazard/blob/main/docs/adr/0018-backups-and-disaster-recovery.md
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=ductual
+WorkingDirectory=/opt/geohazard
+Environment=BACKUP_DIR=/srv/geohazard-backups
+ExecStart=/opt/geohazard/ops/backup.sh

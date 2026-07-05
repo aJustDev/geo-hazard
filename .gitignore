@@ -17,3 +17,8 @@ htmlcov/
 # Datos generados: los snapshots GeoParquet no se versionan
 data/exports/
 *.duckdb
+
+# Backups: el destino default cae fuera del repo, pero por si acaso
+geohazard-backups/
+*.sql.zst
+*.sql.gz
