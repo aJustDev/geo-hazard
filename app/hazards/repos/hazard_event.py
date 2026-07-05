@@ -26,6 +26,10 @@ from app.hazards.services.geometry import SRID_ETRS89_UTM30, SRID_WGS84
 # Columnas que un upsert puede refrescar cuando el contenido cambia de verdad.
 _UPDATABLE = ("hazard_type", "geom", "severity", "starts_at", "ends_at", "attrs", "content_hash")
 
+# Techo de clusters devueltos: cota dura de salida del endpoint /clusters
+# (ADR-0017). El order_by por recuento deja arriba los clusters mas grandes.
+_MAX_CLUSTERS = 500
+
 # asyncpg limita cada sentencia a 32767 argumentos: un lote de EFFIS en
 # temporada de incendios (~8k hotspots) lo revienta. El tamano de trozo se
 # deriva del numero real de columnas del lote para que el limite siga siendo
@@ -283,6 +287,7 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
         *,
         eps_m: float,
         min_points: int,
+        bbox: tuple[float, float, float, float] | None = None,
         hazard_types: list[str] | None = None,
         source: str | None = None,
         severity_min: int | None = None,
@@ -297,6 +302,10 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
         temporal. El ruido (cluster_id NULL: puntos sin min_points vecinos a
         eps_m) se excluye: no es un cluster. El centroide se calcula en 25830
         (centroide metrico) y se devuelve en 4326.
+
+        El bbox prefiltra sobre el GiST (mismo envelope que list_page) antes
+        del DBSCAN, y el LIMIT acota la salida: ambos son cotas duras contra
+        el DoS de computo del endpoint (ADR-0017).
         """
         geom_metric = func.ST_Transform(HazardEventORM.geom, SRID_ETRS89_UTM30)
         base = select(
@@ -305,6 +314,9 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
             geom_metric.label("geom_metric"),
             func.ST_ClusterDBSCAN(geom_metric, eps_m, min_points).over().label("cluster_id"),
         )
+        if bbox is not None:
+            envelope = func.ST_MakeEnvelope(*bbox, SRID_WGS84)
+            base = base.where(HazardEventORM.geom.ST_Intersects(envelope))
         base = _apply_filters(
             base,
             hazard_types=hazard_types,
@@ -334,6 +346,7 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
             .where(clustered.c.cluster_id.is_not(None))
             .group_by(clustered.c.cluster_id)
             .order_by(func.count().desc(), clustered.c.cluster_id)
+            .limit(_MAX_CLUSTERS)
         )
         result = await self.session.execute(stmt)
         return [dict(row) for row in result.mappings()]

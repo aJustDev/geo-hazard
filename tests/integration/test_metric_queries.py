@@ -28,6 +28,10 @@ BASE = datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
 # Centro de consulta: el primer punto del trio de Madrid.
 MADRID = {"lon": -3.70, "lat": 40.42}
 
+# Bbox peninsular que cubre todo el seed (Madrid, Toledo, BCN): satisface la
+# cota obligatoria de /clusters sin alterar que puntos entran (ADR-0017).
+IBERIA_BBOX = "-9.5,36.0,3.4,43.8"
+
 
 def _event(
     external_id: str,
@@ -125,7 +129,7 @@ async def test_near_radio_maximo_422(seeded_client: httpx.AsyncClient) -> None:
 async def test_clusters_agrupa_y_excluye_ruido(seeded_client: httpx.AsyncClient) -> None:
     response = await seeded_client.get(
         "/v1/events/clusters",
-        params={"eps_m": 5_000, "min_points": 3, "hazard_type": "wildfire"},
+        params={"eps_m": 5_000, "min_points": 3, "hazard_type": "wildfire", "bbox": IBERIA_BBOX},
     )
     body = response.json()
 
@@ -140,9 +144,11 @@ async def test_clusters_agrupa_y_excluye_ruido(seeded_client: httpx.AsyncClient)
     assert abs(lat - 40.4333) < 0.02
 
 
-async def test_clusters_sin_filtro_absorbe_al_sismo(seeded_client: httpx.AsyncClient) -> None:
+async def test_clusters_sin_filtro_de_tipo_absorbe_al_sismo(
+    seeded_client: httpx.AsyncClient,
+) -> None:
     response = await seeded_client.get(
-        "/v1/events/clusters", params={"eps_m": 5_000, "min_points": 3}
+        "/v1/events/clusters", params={"eps_m": 5_000, "min_points": 3, "bbox": IBERIA_BBOX}
     )
     body = response.json()
 
@@ -154,12 +160,50 @@ async def test_clusters_min_points_exigente_devuelve_vacio(
     seeded_client: httpx.AsyncClient,
 ) -> None:
     response = await seeded_client.get(
-        "/v1/events/clusters", params={"eps_m": 5_000, "min_points": 6}
+        "/v1/events/clusters", params={"eps_m": 5_000, "min_points": 6, "bbox": IBERIA_BBOX}
     )
     body = response.json()
 
     assert body["numberReturned"] == 0
     assert body["features"] == []
+
+
+async def test_clusters_sin_cota_es_400(seeded_client: httpx.AsyncClient) -> None:
+    # C1a (ADR-0017): sin bbox ni starts_after el DBSCAN correria sobre toda
+    # la tabla; se rechaza como error de negocio, no se ejecuta.
+    response = await seeded_client.get("/v1/events/clusters", params={"eps_m": 5_000})
+    assert response.status_code == 400
+    assert response.json()["code"] == "business_validation"
+
+
+async def test_clusters_con_solo_starts_after_basta(seeded_client: httpx.AsyncClient) -> None:
+    # Una ventana temporal es cota suficiente: no hace falta bbox.
+    response = await seeded_client.get(
+        "/v1/events/clusters",
+        params={"eps_m": 5_000, "min_points": 3, "starts_after": "2026-01-01T00:00:00Z"},
+    )
+    assert response.status_code == 200
+    assert response.json()["numberReturned"] == 1
+
+
+async def test_clusters_bbox_malformada_es_400(seeded_client: httpx.AsyncClient) -> None:
+    response = await seeded_client.get(
+        "/v1/events/clusters", params={"eps_m": 5_000, "bbox": "1,2,3"}
+    )
+    assert response.status_code == 400
+    assert response.json()["code"] == "business_validation"
+
+
+async def test_clusters_bbox_recorta_espacialmente(seeded_client: httpx.AsyncClient) -> None:
+    # Un bbox ajustado a Barcelona (un solo punto) deja al trio de Madrid
+    # fuera: sin min_points vecinos, no hay cluster. Prueba que el recorte
+    # espacial se aplica ANTES del DBSCAN.
+    response = await seeded_client.get(
+        "/v1/events/clusters",
+        params={"eps_m": 5_000, "min_points": 3, "bbox": "1.9,41.1,2.4,41.6"},
+    )
+    assert response.status_code == 200
+    assert response.json()["numberReturned"] == 0
 
 
 async def test_near_prefiltra_con_el_gist(db_session: AsyncSession) -> None:

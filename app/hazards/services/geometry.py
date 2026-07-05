@@ -80,6 +80,21 @@ def validate_bbox(
     return (min_lon, min_lat, max_lon, max_lat)
 
 
+def parse_bbox(bbox_raw: str | None) -> tuple[float, float, float, float] | None:
+    """'minLon,minLat,maxLon,maxLat' -> tupla validada, o None si es None.
+
+    Lanza ValueError si el formato o los rangos estan mal; quien llama decide
+    como mapearlo (los use cases lo convierten en BusinessValidationError/400).
+    """
+    if bbox_raw is None:
+        return None
+    parts = bbox_raw.split(",")
+    if len(parts) != 4:
+        raise ValueError("bbox must be 'minLon,minLat,maxLon,maxLat'")
+    min_lon, min_lat, max_lon, max_lat = (float(p) for p in parts)
+    return validate_bbox(min_lon=min_lon, min_lat=min_lat, max_lon=max_lon, max_lat=max_lat)
+
+
 def _to_lists(coordinates: Any) -> Any:
     if isinstance(coordinates, list | tuple):
         return [_to_lists(item) for item in coordinates]
@@ -91,6 +106,7 @@ __all__ = [
     "SRID_WGS84",
     "cap_polygon_to_wkb",
     "geojson_to_wkb",
+    "parse_bbox",
     "point_to_wkb",
     "validate_bbox",
     "wkb_to_geojson",

@@ -6,7 +6,7 @@ from app.core.exceptions.exceptions import BusinessValidationError, NotFoundErro
 from app.hazards.models.hazard_event import HazardEventORM
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.schemas.events import EventFeature, EventFeatureCollection, EventProperties
-from app.hazards.services.geometry import validate_bbox, wkb_to_geojson
+from app.hazards.services.geometry import parse_bbox, wkb_to_geojson
 from app.hazards.services.pagination import decode_cursor, encode_cursor
 
 
@@ -69,14 +69,8 @@ class ListEventsUseCase:
     @staticmethod
     def _parse_bbox(bbox_raw: str | None) -> tuple[float, float, float, float] | None:
         """'minLon,minLat,maxLon,maxLat' -> tupla validada. 400 si esta mal."""
-        if bbox_raw is None:
-            return None
-        parts = bbox_raw.split(",")
-        if len(parts) != 4:
-            raise BusinessValidationError("bbox must be 'minLon,minLat,maxLon,maxLat'")
         try:
-            min_lon, min_lat, max_lon, max_lat = (float(p) for p in parts)
-            return validate_bbox(min_lon=min_lon, min_lat=min_lat, max_lon=max_lon, max_lat=max_lat)
+            return parse_bbox(bbox_raw)
         except ValueError as exc:
             raise BusinessValidationError(f"invalid bbox: {exc}") from exc
 

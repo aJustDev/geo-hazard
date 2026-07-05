@@ -92,6 +92,12 @@ async def near_events(
 async def cluster_events(
     repo: Annotated[HazardEventRepo, Depends(get_repo(HazardEventRepo))],
     eps_m: Annotated[float, Query(gt=0, le=200_000, description="DBSCAN neighborhood in meters")],
+    bbox: Annotated[
+        str | None,
+        Query(
+            description="minLon,minLat,maxLon,maxLat (WGS84); required unless starts_after is set"
+        ),
+    ] = None,
     min_points: Annotated[int, Query(ge=1, le=1000)] = 3,
     hazard_type: Annotated[list[HazardType] | None, Query()] = None,
     source: Annotated[Source | None, Query()] = None,
@@ -107,6 +113,7 @@ async def cluster_events(
     return await use_case.execute(
         eps_m=eps_m,
         min_points=min_points,
+        bbox_raw=bbox,
         hazard_types=list(hazard_type) if hazard_type else None,
         source=source,
         severity_min=severity_min,

@@ -1,13 +1,14 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.core.exceptions.exceptions import BusinessValidationError
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.schemas.clusters import (
     ClusterFeature,
     ClusterFeatureCollection,
     ClusterProperties,
 )
-from app.hazards.services.geometry import wkb_to_geojson
+from app.hazards.services.geometry import parse_bbox, wkb_to_geojson
 
 
 @dataclass(slots=True)
@@ -21,6 +22,7 @@ class ClusterEventsUseCase:
         *,
         eps_m: float,
         min_points: int,
+        bbox_raw: str | None = None,
         hazard_types: list[str] | None = None,
         source: str | None = None,
         severity_min: int | None = None,
@@ -28,9 +30,21 @@ class ClusterEventsUseCase:
         starts_before: datetime | None = None,
         active: bool | None = None,
     ) -> ClusterFeatureCollection:
+        try:
+            bbox = parse_bbox(bbox_raw)
+        except ValueError as exc:
+            raise BusinessValidationError(f"invalid bbox: {exc}") from exc
+        # El DBSCAN corre sobre todas las filas que pasen los filtros; sin una
+        # cota espacial o temporal seria un DoS de CPU/RAM disparable por
+        # cualquiera (ADR-0017). Se exige al menos una: bbox o ventana temporal.
+        if bbox is None and starts_after is None:
+            raise BusinessValidationError(
+                "clusters requires a bounding filter: bbox or starts_after"
+            )
         rows = await self.repo.cluster_rows(
             eps_m=eps_m,
             min_points=min_points,
+            bbox=bbox,
             hazard_types=hazard_types,
             source=source,
             severity_min=severity_min,
