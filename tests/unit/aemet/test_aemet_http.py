@@ -106,3 +106,26 @@ async def test_datos_que_no_son_tar_es_error_de_protocolo() -> None:
 
     with pytest.raises(AemetProtocolError, match="tar"):
         await _client(handler).fetch_warnings()
+
+
+@pytest.mark.parametrize(
+    "datos",
+    [
+        "http://169.254.169.254/latest/meta-data",
+        "http://opendata.aemet.es/opendata/sh/tar",
+        "https://atacante.example/opendata/sh/tar",
+    ],
+)
+async def test_datos_url_fuera_de_aemet_no_se_sigue(datos: str) -> None:
+    # datos_url viene del JSON del upstream: si apunta fuera de AEMET (o va
+    # sin TLS), el segundo salto no debe ocurrir jamas (seria una SSRF).
+    requests: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        return httpx.Response(200, text=_envelope(datos=datos))
+
+    with pytest.raises(AemetProtocolError, match="outside opendata.aemet.es"):
+        await _client(handler).fetch_warnings()
+
+    assert requests == [LAST_BULLETIN_URL]

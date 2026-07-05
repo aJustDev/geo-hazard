@@ -9,6 +9,7 @@ URL temporal no la incorpora, asi que nunca acaba en logs de terceros.
 import io
 import logging
 import tarfile
+from urllib.parse import urlparse
 
 import httpx
 
@@ -62,6 +63,13 @@ class AemetHttpClient:
             raise AemetProtocolError(
                 f"AEMET envelope estado={estado!r}: {envelope.get('descripcion', 'sin descripcion')!r}"
             )
+
+        # La URL del segundo salto viene del JSON del upstream: solo se sigue
+        # a la propia AEMET por https. Cualquier otro destino convertiria al
+        # worker en un proxy hacia servicios internos (SSRF).
+        parsed = urlparse(datos_url)
+        if parsed.scheme != "https" or parsed.hostname != "opendata.aemet.es":
+            raise AemetProtocolError(f"AEMET datos URL outside opendata.aemet.es: {datos_url!r}")
 
         data_response = await client.get(datos_url)
         if data_response.status_code != 200:
