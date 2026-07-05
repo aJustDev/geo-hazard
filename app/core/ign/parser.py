@@ -12,6 +12,7 @@ resulta equivocada: el dato crudo sobrevive a la interpretacion.
 """
 
 import logging
+import math
 import re
 from datetime import UTC, datetime
 from urllib.parse import parse_qs, urlparse
@@ -73,14 +74,23 @@ def _parse_item(item: Element) -> IgnRecord | None:
     if not (evid and lat_text and lon_text and match):
         return None
 
+    latitude = float(lat_text)
+    longitude = float(lon_text)
+    # float() acepta "nan", "inf" y "1e999"; una coordenada asi produciria
+    # una geometria invalida, de modo que invalida el item (no el feed).
+    if not (math.isfinite(latitude) and math.isfinite(longitude)):
+        return None
+    if not (-90.0 <= latitude <= 90.0 and -180.0 <= longitude <= 180.0):
+        return None
+
     raw_moment = match.group("moment")
     occurred_local = datetime.strptime(raw_moment, "%d/%m/%Y %H:%M:%S").replace(tzinfo=_TZ_MADRID)
     return IgnRecord(
         external_id=evid,
         magnitude=float(match.group("magnitude")),
         region=match.group("region"),
-        latitude=float(lat_text),
-        longitude=float(lon_text),
+        latitude=latitude,
+        longitude=longitude,
         occurred_at=occurred_local.astimezone(UTC),
         attrs={"raw_local_moment": raw_moment},
     )

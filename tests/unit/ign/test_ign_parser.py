@@ -71,3 +71,25 @@ def test_ningun_item_parseable_es_error_de_protocolo() -> None:
 
 def test_feed_vacio_es_lista_vacia() -> None:
     assert parse_georss(_feed("")) == []
+
+
+def test_coordenada_fuera_de_rango_se_salta() -> None:
+    fuera = _ITEM_OK.replace("<geo:lat>36.6366</geo:lat>", "<geo:lat>96.6366</geo:lat>").replace(
+        "evid=es2026aaaaa", "evid=es2026bbbbb"
+    )
+    records = parse_georss(_feed(_ITEM_OK + fuera))
+
+    assert len(records) == 1
+    assert records[0].external_id == "es2026aaaaa"
+
+
+def test_coordenada_no_finita_se_salta() -> None:
+    # float() acepta "nan" y "1e999" (inf); ninguna debe llegar a geometria.
+    for basura in ("nan", "1e999"):
+        roto = _ITEM_OK.replace(
+            "<geo:long>-8.0798</geo:long>", f"<geo:long>{basura}</geo:long>"
+        ).replace("evid=es2026aaaaa", "evid=es2026ccccc")
+        records = parse_georss(_feed(_ITEM_OK + roto))
+
+        assert len(records) == 1
+        assert records[0].external_id == "es2026aaaaa"
