@@ -65,6 +65,10 @@ class HazardEventORM(UUIDPkMixin, TimestampsMixin, Base):
         CheckConstraint("severity BETWEEN 1 AND 4", name="severity_en_rango"),
         # Filtros temporales por tipo (la ordenacion keyset tambien lo usa).
         Index("ix_hazard_events_hazard_type_starts_at", "hazard_type", text("starts_at DESC")),
+        # Soporte del cursor keyset global: la lista SIN filtro de tipo (el
+        # caso comun) ordena por (starts_at DESC, id DESC); sin este indice
+        # cada pagina paga un sort completo (ADR-0006).
+        Index("ix_hazard_events_starts_at_id", text("starts_at DESC"), text("id DESC")),
         # Parcial: solo los eventos con ventana participan en `active=true`.
         Index(
             "ix_hazard_events_ends_at_activos",
