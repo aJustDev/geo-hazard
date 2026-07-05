@@ -7,8 +7,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.hazards.models.hazard_event import HazardEventORM
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.services.content_hash import content_hash
 from app.hazards.services.geometry import geojson_to_wkb
@@ -50,3 +52,24 @@ async def test_lote_mayor_que_el_limite_de_argumentos_de_asyncpg(
     for i in (0, 1500, 4000):
         rows[i] = _row(i, version=2)
     assert await repo.upsert_batch(rows) == (0, 3)
+
+
+async def test_clave_duplicada_en_el_lote_gana_la_ultima_ocurrencia(
+    db_session: AsyncSession,
+) -> None:
+    # EFFIS puede re-servir el mismo fire_id dos veces en una respuesta; sin
+    # dedup, dos filas con igual (source, external_id) en una sentencia
+    # abortan el ON CONFLICT DO UPDATE entero con CardinalityViolation
+    # ("cannot affect row a second time") y el sync devuelve un 500.
+    repo = HazardEventRepo(db_session)
+
+    assert await repo.upsert_batch([_row(7, version=1), _row(7, version=2)]) == (1, 0)
+
+    stored = (
+        await db_session.execute(
+            select(HazardEventORM).where(
+                HazardEventORM.source == "effis", HazardEventORM.external_id == "hs-7"
+            )
+        )
+    ).scalar_one()
+    assert stored.attrs["v"] == 2
