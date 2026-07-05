@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 
+from app.core.rate_limit import EXPENSIVE_LIMIT, limiter
 from app.deps.repository import get_repo
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.schemas.clusters import ClusterFeatureCollection
@@ -89,7 +90,9 @@ async def near_events(
 
 
 @router.get("/clusters", response_model=ClusterFeatureCollection)
+@limiter.limit(EXPENSIVE_LIMIT)
 async def cluster_events(
+    request: Request,
     repo: Annotated[HazardEventRepo, Depends(get_repo(HazardEventRepo))],
     eps_m: Annotated[float, Query(gt=0, le=200_000, description="DBSCAN neighborhood in meters")],
     bbox: Annotated[

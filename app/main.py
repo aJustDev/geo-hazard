@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.v1 import v1_router
 from app.core import db_registry as _db_registry  # noqa: F401 - registra modelos y handlers
@@ -12,6 +14,7 @@ from app.core.db import engine
 from app.core.events.worker import OutboxWorker
 from app.core.exceptions.handlers import register_exception_handlers
 from app.core.jobs.worker import JobWorker
+from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 from app.core.startup import check_data_dir, check_database, check_utc_timezone
 
 logger = logging.getLogger(__name__)
@@ -43,6 +46,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
+
+# Rate limiting (ADR-0017). Se anade ANTES que CORS para que este ultimo quede
+# como middleware mas externo y las respuestas 429 tambien lleven cabeceras
+# CORS. Los decoradores @limiter.limit de los endpoints caros funcionan aunque
+# el limiter este deshabilitado (no-op); el middleware solo se monta si esta on.
+if settings.RATE_LIMIT_ENABLED:
+    app.state.limiter = limiter
+    # Starlette tipa el handler con exc: Exception; el nuestro lo estrecha a
+    # RateLimitExceeded (mas claro). Falso positivo de varianza conocido.
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    app.add_middleware(SlowAPIMiddleware)
 if settings.cors_origins:
     # Solo lectura desde el front estatico: GET (el middleware gestiona el preflight).
     app.add_middleware(
