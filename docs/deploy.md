@@ -52,12 +52,28 @@ auditable act.
 
 ## Operational notes
 
-- **EFFIS is paused in production** until its HTTP adapter lands (blocked on
-  a real WFS payload, see `docs/sources.md`). The pause is data, not code:
-  `UPDATE scheduled_jobs SET next_run_at = 'infinity' WHERE job_name =
-'effis_sync';` - the scheduler only claims jobs with `next_run_at <=
-now()`, and `'infinity'` survives every deploy. Reactivate with
-  `next_run_at = now()` once the adapter exists.
+- All three sources (EFFIS, IGN, AEMET) sync in production. A source can be
+  paused as data, not code: `UPDATE scheduled_jobs SET next_run_at =
+'infinity' WHERE job_name = '<source>_sync';` - the scheduler only claims
+  jobs with `next_run_at <= now()`, and `'infinity'` survives every deploy.
+  Reactivate with `next_run_at = now()`.
 - Migrations run BEFORE the API container is recreated; a failing migration
   aborts the deploy and leaves the previous API running.
 - A deploy is idempotent: re-running it converges to the same state.
+
+### Availability defenses (ADR-0017)
+
+- **Statement timeouts.** `compose.yml` sets a transversal
+  `statement_timeout=30s` and `lock_timeout=5s` on the database; the API
+  engine tightens `statement_timeout` to 10s (`DB_STATEMENT_TIMEOUT_MS`).
+  Migrations are exempted in `migrations/env.py` (`SET statement_timeout=0`),
+  so a long DDL never aborts a deploy. Verify after deploy with
+  `docker exec geohazard-db psql -U "$DB_USER" -d "$DB_NAME" -c "SHOW
+statement_timeout"` (expect `30s`).
+- **Rate limiting** is enforced in the app (slowapi), keyed on
+  `X-Forwarded-For` from Caddy: a generous global limit plus a stricter one on
+  `/clusters` and `/analytics/*`. Tune via `RATE_LIMIT_*`; counters are
+  in-memory and reset on redeploy. A burst over the limit returns `429` with a
+  `Retry-After` header.
+- **`/clusters` requires a bounding filter** (`bbox` or `starts_after`); a
+  call with neither is a `400`, by design.
