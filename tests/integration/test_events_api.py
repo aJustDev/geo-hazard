@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.db import get_session
@@ -105,6 +106,52 @@ async def test_bbox_invalida_400(seeded_client: httpx.AsyncClient) -> None:
     response = await seeded_client.get("/v1/events", params={"bbox": "3.4,36.0,-9.5,43.8"})
     assert response.status_code == 400
     assert response.json()["code"] == "business_validation"
+
+
+@pytest.mark.parametrize("bbox", ["1,2,3", "a,b,c,d"])
+async def test_bbox_malformada_400(seeded_client: httpx.AsyncClient, bbox: str) -> None:
+    # No solo la bbox invertida: menos de 4 partes o partes no numericas
+    # tambien deben ser 400 de negocio, nunca un 500.
+    response = await seeded_client.get("/v1/events", params={"bbox": bbox})
+    assert response.status_code == 400
+    assert response.json()["code"] == "business_validation"
+
+
+async def test_cotas_inferiores_y_limite_422(seeded_client: httpx.AsyncClient) -> None:
+    # Las cotas minimas y el techo de limit son contrato de la API; hasta
+    # ahora solo estaba probado el techo del radio.
+    casos = [
+        ("/v1/events/near", {"lon": -3.7, "lat": 40.4, "radius_m": 0}),
+        ("/v1/events/near", {"lon": -3.7, "lat": 40.4, "radius_m": -5}),
+        ("/v1/events/clusters", {"eps_m": 0}),
+        ("/v1/events/clusters", {"eps_m": 5000, "min_points": 0}),
+        ("/v1/events", {"limit": 1001}),
+        ("/v1/events", {"limit": 0}),
+    ]
+    for path, params in casos:
+        response = await seeded_client.get(path, params=params)
+        assert response.status_code == 422, f"{path} {params} -> {response.status_code}"
+
+
+async def test_keyset_sin_filtro_usa_el_indice_de_soporte(db_session: AsyncSession) -> None:
+    # El orden global (starts_at DESC, id DESC) tiene indice dedicado; con
+    # seqscan deshabilitado el plan DEBE nombrarlo. Si desapareciera, cada
+    # pagina del caso comun (sin hazard_type) pagaria un sort completo.
+    await db_session.execute(text("SET LOCAL enable_seqscan = off"))
+    rows = (
+        (
+            await db_session.execute(
+                text(
+                    "EXPLAIN SELECT * FROM hazard_events ORDER BY starts_at DESC, id DESC LIMIT 101"
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    plan = "\n".join(rows)
+
+    assert "ix_hazard_events_starts_at_id" in plan
 
 
 async def test_cursor_corrupto_400(seeded_client: httpx.AsyncClient) -> None:
