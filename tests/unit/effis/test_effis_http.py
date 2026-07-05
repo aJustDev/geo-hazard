@@ -3,6 +3,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from app.core.config import settings
 from app.core.effis.drivers.http import BURNT_AREAS_LAYER, HOTSPOTS_LAYER, EffisHttpClient
 from app.core.effis.exceptions import EffisProtocolError, EffisTransientError
 
@@ -79,4 +80,16 @@ async def test_excepcion_xml_de_mapserver_es_transitoria() -> None:
         return httpx.Response(200, content=body)
 
     with pytest.raises(EffisTransientError, match="layer backend"):
+        await _client(handler).fetch_burnt_areas()
+
+
+async def test_respuesta_gigante_se_corta(monkeypatch: pytest.MonkeyPatch) -> None:
+    # C3 (ADR-0017): un cuerpo mayor que el tope se corta por streaming y se
+    # trata como transitorio, en vez de materializarse entero en RAM.
+    monkeypatch.setattr(settings, "HTTP_MAX_RESPONSE_BYTES", 16)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"x" * 4096)
+
+    with pytest.raises(EffisTransientError, match="too large"):
         await _client(handler).fetch_burnt_areas()

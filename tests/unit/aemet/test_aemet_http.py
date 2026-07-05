@@ -6,8 +6,10 @@ from pathlib import Path
 import httpx
 import pytest
 
+from app.core.aemet.drivers import http as aemet_http
 from app.core.aemet.drivers.http import LAST_BULLETIN_URL, AemetHttpClient
 from app.core.aemet.exceptions import AemetProtocolError, AemetTransientError
+from app.core.config import settings
 
 FIXTURE = Path(__file__).parents[2] / "fixtures" / "aemet" / "cap_aviso_naranja_ta.xml"
 
@@ -129,3 +131,46 @@ async def test_datos_url_fuera_de_aemet_no_se_sigue(datos: str) -> None:
         await _client(handler).fetch_warnings()
 
     assert requests == [LAST_BULLETIN_URL]
+
+
+async def test_datos_gigante_es_transitorio(monkeypatch: pytest.MonkeyPatch) -> None:
+    # C3 (ADR-0017): el tar del segundo salto se lee por streaming con tope.
+    monkeypatch.setattr(settings, "HTTP_MAX_RESPONSE_BYTES", 16)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == LAST_BULLETIN_URL:
+            return httpx.Response(200, text=_envelope())
+        return httpx.Response(200, content=b"x" * 4096)
+
+    with pytest.raises(AemetTransientError, match="too large"):
+        await _client(handler).fetch_warnings()
+
+
+async def test_miembro_de_tar_demasiado_grande_es_error_de_protocolo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # C4 (ADR-0017): un miembro declarado enorme es un archivo hostil; se
+    # comprueba member.size ANTES de leer el contenido.
+    monkeypatch.setattr(aemet_http, "_MAX_TAR_MEMBER_BYTES", 4)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == LAST_BULLETIN_URL:
+            return httpx.Response(200, text=_envelope())
+        return httpx.Response(200, content=_tar_with_caps(count=1))
+
+    with pytest.raises(AemetProtocolError, match="too large"):
+        await _client(handler).fetch_warnings()
+
+
+async def test_tar_con_demasiados_miembros_es_error_de_protocolo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(aemet_http, "_MAX_TAR_MEMBERS", 1)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url) == LAST_BULLETIN_URL:
+            return httpx.Response(200, text=_envelope())
+        return httpx.Response(200, content=_tar_with_caps(count=3))
+
+    with pytest.raises(AemetProtocolError, match="too many members"):
+        await _client(handler).fetch_warnings()

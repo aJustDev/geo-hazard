@@ -16,11 +16,18 @@ import httpx
 from app.core.aemet.exceptions import AemetProtocolError, AemetTransientError
 from app.core.aemet.parser import parse_cap
 from app.core.aemet.types import AemetWarning
+from app.core.config import settings
+from app.core.http import ResponseTooLargeError, get_capped
 
 logger = logging.getLogger(__name__)
 
 LAST_BULLETIN_URL = "https://opendata.aemet.es/opendata/api/avisos_cap/ultimoelaborado/area/esp"
 _TIMEOUT_SECONDS = 60.0
+
+# Guardas anti tar-bomb (ADR-0017): un CAP real son unos pocos KB, asi que un
+# miembro declarado enorme o un exceso de miembros es un archivo hostil/roto.
+_MAX_TAR_MEMBER_BYTES = 10 * 1024 * 1024
+_MAX_TAR_MEMBERS = 10000
 
 
 class AemetHttpClient:
@@ -71,12 +78,17 @@ class AemetHttpClient:
         if parsed.scheme != "https" or parsed.hostname != "opendata.aemet.es":
             raise AemetProtocolError(f"AEMET datos URL outside opendata.aemet.es: {datos_url!r}")
 
-        data_response = await client.get(datos_url)
-        if data_response.status_code != 200:
+        try:
+            status_code, body = await get_capped(
+                client, datos_url, max_bytes=settings.HTTP_MAX_RESPONSE_BYTES
+            )
+        except ResponseTooLargeError as exc:
+            raise AemetTransientError(f"AEMET datos URL response too large: {exc}") from exc
+        if status_code != 200:
             # La URL de datos es temporal: si caduco, el siguiente poll pide
             # una fresca. Cualquier fallo aqui es reintentable.
-            raise AemetTransientError(f"AEMET datos URL returned {data_response.status_code}")
-        return data_response.content
+            raise AemetTransientError(f"AEMET datos URL returned {status_code}")
+        return body
 
     @staticmethod
     def _parse_archive(data: bytes) -> list[AemetWarning]:
@@ -84,11 +96,23 @@ class AemetHttpClient:
         # asi que las trampas clasicas de tar (rutas ../) no aplican.
         warnings: list[AemetWarning] = []
         skipped = 0
+        members_seen = 0
         try:
             with tarfile.open(fileobj=io.BytesIO(data), mode="r:*") as archive:
                 for member in archive:
+                    members_seen += 1
+                    if members_seen > _MAX_TAR_MEMBERS:
+                        raise AemetProtocolError(
+                            f"AEMET tar has too many members (> {_MAX_TAR_MEMBERS})"
+                        )
                     if not member.isfile():
                         continue
+                    # member.size viene de la cabecera: se comprueba ANTES de
+                    # leer el contenido, que es el punto de la guarda.
+                    if member.size > _MAX_TAR_MEMBER_BYTES:
+                        raise AemetProtocolError(
+                            f"AEMET tar member {member.name!r} too large ({member.size} bytes)"
+                        )
                     file = archive.extractfile(member)
                     if file is None:
                         continue

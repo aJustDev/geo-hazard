@@ -13,9 +13,11 @@ peticion explicita; el spike registro cuelgues con h2).
 
 import httpx
 
+from app.core.config import settings
 from app.core.effis.exceptions import EffisProtocolError, EffisTransientError
 from app.core.effis.parser import parse_burnt_areas, parse_hotspots
 from app.core.effis.types import EffisRecord
+from app.core.http import ResponseTooLargeError, get_capped
 
 BASE_URL = "https://maps.effis.emergency.copernicus.eu/gwis"
 HOTSPOTS_LAYER = "all.hs.week"
@@ -60,21 +62,25 @@ class EffisHttpClient:
                 transport=self._transport,
                 headers={"User-Agent": _USER_AGENT},
             ) as client:
-                response = await client.get(BASE_URL, params=params)
+                status_code, body = await get_capped(
+                    client, BASE_URL, max_bytes=settings.HTTP_MAX_RESPONSE_BYTES, params=params
+                )
         except httpx.HTTPError as exc:
             raise EffisTransientError(f"EFFIS WFS unreachable: {exc}") from exc
+        except ResponseTooLargeError as exc:
+            raise EffisTransientError(f"EFFIS WFS response too large: {exc}") from exc
 
-        if response.status_code >= 500:
-            raise EffisTransientError(f"EFFIS WFS returned {response.status_code}")
-        if response.status_code != 200:
+        if status_code >= 500:
+            raise EffisTransientError(f"EFFIS WFS returned {status_code}")
+        if status_code != 200:
             # Un 4xx no se arregla reintentando: la URL o el contrato cambiaron.
-            raise EffisProtocolError(f"EFFIS WFS returned {response.status_code}")
-        if b"ServiceExceptionReport" in response.content[:512]:
+            raise EffisProtocolError(f"EFFIS WFS returned {status_code}")
+        if b"ServiceExceptionReport" in body[:512]:
             # MapServer responde 200 con una excepcion XML cuando el backend
             # de la capa falla (observado durante dias en /effis): es un
             # fallo del servidor, no un cambio de contrato. Reintentable.
             raise EffisTransientError(f"EFFIS WFS layer backend error on {typename}")
-        return response.content
+        return body
 
 
 __all__ = ["BASE_URL", "BURNT_AREAS_LAYER", "HOTSPOTS_LAYER", "EffisHttpClient"]
