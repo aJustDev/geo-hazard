@@ -21,6 +21,13 @@ services:
       - "max_connections=50"
       - "-c"
       - "shared_buffers=256MB"
+      # Red de seguridad transversal (ADR-0017): cualquier conexion (API,
+      # workers, psql manual) tiene un techo. La API afina uno mas estricto
+      # (10s) en su engine; las migraciones se eximen (statement_timeout=0).
+      - "-c"
+      - "statement_timeout=30s"
+      - "-c"
+      - "lock_timeout=5s"
     mem_limit: 768m
     ports:
       - "127.0.0.1:5436:5432"

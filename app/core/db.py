@@ -17,6 +17,11 @@ engine = create_async_engine(
     pool_recycle=settings.DB_POOL_RECYCLE,
     pool_pre_ping=True,
     echo=False,
+    # Techo de duracion de sentencia en toda conexion de la app (API y workers):
+    # una query desbocada (p.ej. el DBSCAN de /clusters) muere sola en vez de
+    # colgar la BD compartida (ADR-0017). Las migraciones usan su propia
+    # conexion y se eximen en migrations/env.py.
+    connect_args={"server_settings": {"statement_timeout": str(settings.DB_STATEMENT_TIMEOUT_MS)}},
 )
 
 async_session_factory = async_sessionmaker(engine, expire_on_commit=False)
