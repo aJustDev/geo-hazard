@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     # por streaming antes de agotar la RAM del worker. 50 MB.
     HTTP_MAX_RESPONSE_BYTES: int = 52428800
 
+    # Frescura de fuentes para /v1/sources/status (ADR-0019). Una fuente es
+    # stale si lleva sin exito mas de STALENESS_FACTOR * su intervalo de sync
+    # (cadencia propia de scheduled_jobs, no un umbral fijo: effis va a 4h).
+    # Deja de estar healthy con MAX_FAILURES fallos consecutivos.
+    SOURCE_STALENESS_FACTOR: int = 3
+    SOURCE_MAX_FAILURES: int = 3
+
     # Database. DATABASE_URL is derived from the parts unless set explicitly.
     DB_HOST: str = "localhost"
     DB_PORT: int = 5433

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -55,3 +56,9 @@ class SourceSyncStateRepo:
 
     async def get(self, source: str) -> SourceSyncStateORM | None:
         return await self.session.get(SourceSyncStateORM, source)
+
+    async def list_all(self) -> list[SourceSyncStateORM]:
+        result = await self.session.execute(
+            select(SourceSyncStateORM).order_by(SourceSyncStateORM.source)
+        )
+        return list(result.scalars().all())
