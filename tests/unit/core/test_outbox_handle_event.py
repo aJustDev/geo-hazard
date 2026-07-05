@@ -48,3 +48,24 @@ async def test_handle_event_failure_increments_retry_and_backs_off() -> None:
     assert event.retry_count == 1
     assert event.scheduled_at > base
     assert event.handler_state["_boom"]["status"] == "failed"
+
+
+async def test_handle_event_dead_letters_when_retries_exhausted() -> None:
+    # La rama mas importante en operacion: al agotar max_retries el evento
+    # pasa a FAILED con last_error y NO se reprograma (dead-letter).
+    @dispatcher.register("outbox.test.dead")
+    async def _dead(payload: dict[str, Any]) -> None:
+        raise RuntimeError("fallo permanente")
+
+    worker = OutboxWorker()
+    session = AsyncMock()
+    base = datetime(2024, 1, 1, tzinfo=UTC)
+    event = _event(event_type="outbox.test.dead", retry_count=2, scheduled_at=base)
+
+    await worker._handle_event(session, event)
+
+    assert event.status == "FAILED"
+    assert event.retry_count == 3
+    assert "fallo permanente" in event.last_error
+    assert event.scheduled_at == base  # sin backoff: no habra mas intentos
+    session.flush.assert_awaited_once()

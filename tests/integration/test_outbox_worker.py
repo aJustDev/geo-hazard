@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Iterator
 
 import pytest
@@ -82,3 +83,44 @@ async def test_failing_handler_is_rescheduled_with_backoff(
     assert row.retry_count == 1
     assert row.last_error is not None
     assert row.handler_state["handler"]["status"] == "failed"
+
+
+async def test_worker_lifecycle_procesa_en_segundo_plano(
+    committing_factory: async_sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_dispatcher: None,
+    pg_url: str,
+) -> None:
+    """Ciclo de vida real: start() -> LISTEN + poll -> dispatch -> stop().
+
+    Ejercita el bucle _run completo (conexion asyncpg, heartbeat, espera con
+    timeout y limpieza del listener al parar), que el resto de tests puentea
+    llamando a _process_batch directamente.
+    """
+    monkeypatch.setattr(worker_module, "async_session_factory", committing_factory)
+    monkeypatch.setattr(worker_module, "_build_asyncpg_dsn", lambda: pg_url.replace("+asyncpg", ""))
+    monkeypatch.setattr(worker_module.settings, "OUTBOX_POLL_INTERVAL_SECONDS", 0.05)
+
+    received: list[dict] = []
+
+    @dispatcher.register("test.lifecycle")
+    async def handler(payload: dict) -> None:
+        received.append(payload)
+
+    async with committing_factory() as session:
+        await EventBus(session).publish("test.lifecycle", {"n": 1})
+        await session.commit()
+
+    worker = OutboxWorker()
+    await worker.start()
+    try:
+        for _ in range(100):  # hasta ~5 s
+            await asyncio.sleep(0.05)
+            if received:
+                break
+    finally:
+        await worker.stop()
+
+    assert received == [{"n": 1}]
+    row = await _fetch(committing_factory, "test.lifecycle")
+    assert row.status == "PROCESSED"
