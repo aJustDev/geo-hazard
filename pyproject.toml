@@ -22,6 +22,8 @@ dependencies = [
     "pyarrow>=21.0",
     "defusedxml>=0.7",
     "slowapi>=0.1.10",
+    "python-json-logger>=3.2",
+    "starlette-exporter>=0.23",
     # zoneinfo necesita una base tzdata; la imagen slim de Docker no la trae.
     "tzdata>=2025.2",
 ]
@@ -40,6 +42,7 @@ dev = [
     "testcontainers[postgres]>=4.14",
     "import-linter>=2.11",
     "pip-audit>=2.9",
+    "pip-licenses>=5.0",
 ]
 
 [build-system]
