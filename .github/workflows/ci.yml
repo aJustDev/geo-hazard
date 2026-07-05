@@ -27,11 +27,40 @@ jobs:
       # dependencia vulnerable debe tumbar el CI, no ser un aviso ignorable.
       - name: Dependency audit (pip-audit)
         run: uv run pip-audit
+      # Confirma que todo el arbol (runtime + dev) es de licencia permisiva:
+      # cierra la inferencia no verificada del auditor. Copyleft fuerte tumba CI.
+      - name: License policy (pip-licenses)
+        run: uv run pip-licenses --fail-on 'GPL;AGPL;LGPL'
       - name: Dockerfile lint (hadolint)
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
           failure-threshold: warning
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t geohazard:prod .
+      - name: Install trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin v0.68.2
+      # HIGH/CRITICAL con fix disponible tumban el CI; ignore-unfixed evita
+      # romper por CVEs de la imagen base aun sin parche. La DB de
+      # vulnerabilidades se actualiza en cada run aunque el binario este pineado.
+      - name: Vulnerability scan (trivy)
+        run: >-
+          trivy image --scanners vuln --severity HIGH,CRITICAL
+          --ignore-unfixed --exit-code 1 --no-progress geohazard:prod
+      - name: SBOM (CycloneDX)
+        run: trivy image --format cyclonedx --output sbom.json --no-progress geohazard:prod
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: sbom.json
 
   test:
     runs-on: ubuntu-latest
