@@ -43,3 +43,17 @@ def test_aemet_http_exige_api_key() -> None:
 def test_aemet_http_con_key_valida() -> None:
     s = make(AEMET_DRIVER="http", AEMET_API_KEY="k")
     assert s.AEMET_DRIVER == "http"
+
+
+def test_defaults_de_defensas_de_disponibilidad() -> None:
+    # Las settings de la fase 2 (ADR-0017) tienen defaults seguros sin .env.
+    s = make()
+    assert s.DB_STATEMENT_TIMEOUT_MS == 10000
+    # RATE_LIMIT_ENABLED lo fuerza a false el conftest raiz de la suite; aqui
+    # basta comprobar que respeta un override explicito y es booleano.
+    assert make(RATE_LIMIT_ENABLED=True).RATE_LIMIT_ENABLED is True
+    assert s.RATE_LIMIT_DEFAULT == "120/minute"
+    assert s.RATE_LIMIT_EXPENSIVE == "20/minute"
+    assert s.ANALYTICS_MAX_CONCURRENCY == 4
+    assert s.ANALYTICS_ACQUIRE_TIMEOUT_SECONDS == 0.5
+    assert s.HTTP_MAX_RESPONSE_BYTES == 52428800

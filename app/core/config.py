@@ -13,6 +13,26 @@ class Settings(BaseSettings):
     # Vacio = sin CORS (default local); en deploy = el dominio del front estatico.
     CORS_ORIGINS: str = ""
 
+    # Rate limiting por IP (slowapi, ADR-0017). La API es publica sin auth por
+    # diseno; el limite acota el coste por cliente sin cerrar el acceso. El
+    # limite estricto protege los endpoints de computo (/clusters, /analytics).
+    # Los contadores viven en memoria (instancia unica) y se resetean en redeploy.
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_DEFAULT: str = "120/minute"
+    RATE_LIMIT_EXPENSIVE: str = "20/minute"
+
+    # Concurrencia del plano analitico DuckDB (ADR-0017): la conexion es unica
+    # (threads=2, memory_limit=512MB); mas peticiones pesadas en paralelo se
+    # reparten esa RAM y dan OOM. El semaforo las acota; al saturar, 503 +
+    # Retry-After en vez de tumbar el proceso.
+    ANALYTICS_MAX_CONCURRENCY: int = 4
+    ANALYTICS_ACQUIRE_TIMEOUT_SECONDS: float = 0.5
+
+    # Tope de cuerpo de respuesta HTTP de los upstreams (ADR-0017): una
+    # respuesta gigante (upstream defectuoso o mirror comprometido) se corta
+    # por streaming antes de agotar la RAM del worker. 50 MB.
+    HTTP_MAX_RESPONSE_BYTES: int = 52428800
+
     # Database. DATABASE_URL is derived from the parts unless set explicitly.
     DB_HOST: str = "localhost"
     DB_PORT: int = 5433
@@ -25,6 +45,11 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_TIMEOUT: int = 30
     DB_POOL_RECYCLE: int = 1800
+    # Techo de duracion de sentencia en las conexiones de la API (y workers):
+    # una query desbocada muere sola en vez de colgar la BD compartida
+    # (ADR-0017). El compose fija ademas un techo global mas holgado; las
+    # migraciones se eximen en migrations/env.py.
+    DB_STATEMENT_TIMEOUT_MS: int = 10000
 
     # Scheduled jobs (core/jobs).
     JOB_POLL_INTERVAL_SECONDS: float = 5.0
