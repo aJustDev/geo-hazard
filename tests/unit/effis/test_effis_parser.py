@@ -109,3 +109,36 @@ def test_payload_no_json_es_error_de_protocolo() -> None:
 def test_coleccion_vacia_devuelve_lote_vacio() -> None:
     # Semana sin incendios en el bbox: respuesta valida, no error.
     assert parse_burnt_areas(_collection([])) == []
+
+
+def test_coordinates_vacias_se_saltan_sin_tirar_el_lote() -> None:
+    # Regresion: coordinates [] lanzaba IndexError no capturado y tumbaba el
+    # lote entero, contradiciendo el contrato del docstring del parser.
+    vacia = _ba_feature(geometry={"type": "Polygon", "coordinates": []})
+    records = parse_burnt_areas(_collection([_ba_feature(), vacia]))
+
+    assert len(records) == 1
+    assert records[0].external_id == "ba-77"
+
+
+def test_vertice_fuera_de_rango_se_salta() -> None:
+    # Sanity del swap de ejes: una "latitud" de 142 grados es imposible; si
+    # el upstream corrigiera la ordenacion en silencio, esto lo delataria.
+    fuera = _ba_feature(
+        geometry={
+            "type": "Polygon",
+            "coordinates": [[[142.0, -4.0], [42.1, -4.0], [42.1, -4.1], [142.0, -4.0]]],
+        }
+    )
+    records = parse_burnt_areas(_collection([_ba_feature(), fuera]))
+
+    assert len(records) == 1
+
+
+def test_area_no_finita_se_salta() -> None:
+    # float() acepta "1e999" (inf) y "nan"; ninguno debe llegar a severity.
+    for area in ("1e999", "nan"):
+        props = {"id": "3", "fire_id": "99", "initialdate": "2026-07-02 12:06:00", "area": area}
+        records = parse_burnt_areas(_collection([_ba_feature(), _ba_feature(properties=props)]))
+
+        assert len(records) == 1

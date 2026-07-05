@@ -16,6 +16,7 @@ EFFIS):
 
 import json
 import logging
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -85,12 +86,17 @@ def _parse_feature(feature: dict[str, Any], *, kind: str) -> EffisRecord | None:
             )
         if geometry["type"] not in _BURNT_AREA_GEOMETRIES:
             return None
+        area_ha = float(properties["area"])
+        # float() acepta "nan", "inf" y "1e999"; un area asi contaminaria la
+        # severidad, de modo que invalida el feature (no el lote).
+        if not math.isfinite(area_ha) or area_ha < 0:
+            raise ValueError(f"area out of range: {properties['area']!r}")
         return EffisRecord(
             external_id=f"ba-{properties['fire_id']}",
             kind=kind,
             geometry=_swap_axes(geometry),
             observed_at=_parse_moment(properties["initialdate"]),
-            area_ha=float(properties["area"]),
+            area_ha=area_ha,
             attrs={
                 "product": "nrt.ba",
                 "fire_id": str(properties["fire_id"]),
@@ -98,7 +104,7 @@ def _parse_feature(feature: dict[str, Any], *, kind: str) -> EffisRecord | None:
                 "raw_finaldate": properties.get("finaldate", ""),
             },
         )
-    except KeyError, TypeError, ValueError:
+    except KeyError, TypeError, ValueError, IndexError:
         return None
 
 
@@ -112,8 +118,18 @@ def _swap_axes(geometry: dict[str, Any]) -> dict[str, Any]:
 
 def _swap_pairs(coords: Any) -> Any:
     # Par hoja [lat, lon] -> [lon, lat]; recursivo para anillos y multipartes.
+    # Todos los vertices de cualquier geometria pasan por aqui, asi que es el
+    # sitio para validar finitud y rango: un vertice invalido (o una lista
+    # vacia) invalida el feature entero via el except del bucle de features.
+    if not coords:
+        raise ValueError("empty coordinates")
     if isinstance(coords[0], int | float):
-        return [coords[1], coords[0]]
+        lat, lon = coords[0], coords[1]
+        if not (math.isfinite(lat) and math.isfinite(lon)):
+            raise ValueError("non-finite coordinate")
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+            raise ValueError("coordinate out of range")
+        return [lon, lat]
     return [_swap_pairs(part) for part in coords]
 
 
