@@ -77,3 +77,77 @@ statement_timeout"` (expect `30s`).
   `Retry-After` header.
 - **`/clusters` requires a bounding filter** (`bbox` or `starts_after`); a
   call with neither is a `400`, by design.
+
+### Backups and disaster recovery (ADR-0018)
+
+Backups are LOCAL and tested; offsite is a deferred hook. What is protected: a
+bad migration, DB corruption, and loss of the GeoParquet volume (the only
+irreproducible asset). What is NOT: total loss of the VPS (accepted risk).
+
+- **What runs**: [`ops/backup.sh`](../ops/backup.sh) writes a daily `pg_dump`
+  (zstd) and a `tar` of the `geohazard_geohazard_data` volume to `BACKUP_DIR`
+  (default `/srv/geohazard-backups`, outside the checkout so `git reset --hard`
+  never touches it). Retention: 7 daily + 4 weekly.
+- **Install the timer** (as the deploy user, needs sudo for the unit files):
+  ```
+  sudo install -m 0755 -d /srv/geohazard-backups
+  sudo chown ductual:ductual /srv/geohazard-backups
+  sudo cp /opt/geohazard/ops/systemd/geohazard-backup.* /etc/systemd/system/
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now geohazard-backup.timer
+  systemctl list-timers geohazard-backup.timer
+  ```
+  Fallback without systemd (cron line, daily at 04:30):
+  ```
+  30 4 * * * BACKUP_DIR=/srv/geohazard-backups /opt/geohazard/ops/backup.sh >> /var/log/geohazard-backup.log 2>&1
+  ```
+- **Run one now and check artifacts**:
+  ```
+  sudo systemctl start geohazard-backup.service
+  ls -lh /srv/geohazard-backups/daily
+  ```
+- **Restore drill** (non-destructive): [`ops/restore.sh`](../ops/restore.sh)
+  boots a throwaway PostGIS, restores a dump into it, prints `hazard_events`
+  counts per source, and destroys it. Compare against production:
+  ```
+  ops/restore.sh /srv/geohazard-backups/daily/geohazard-<date>.sql.zst
+  docker exec geohazard-db psql -U "$DB_USER" -d "$DB_NAME" -At \
+    -c "SELECT source, count(*) FROM hazard_events GROUP BY source ORDER BY source;"
+  ```
+- **Pre-migration snapshot**: every deploy takes a quick DB-only `pg_dump` to
+  `$BACKUP_DIR/pre-migrate/` before running Alembic (keeps the last 5). It is a
+  rollback point; it never aborts the deploy if it fails.
+- Restoring the GeoParquet volume from its tar:
+  ```
+  docker run --rm -v geohazard_geohazard_data:/data -v "$PWD:/backup" alpine \
+    sh -c "cd /data && tar xzf /backup/geohazard-data-<date>.tar.gz"
+  ```
+
+### Observability (ADR-0019)
+
+- **`GET /v1/sources/status`** reports per-source freshness (judged against each
+  source's own sync cadence) and a top-level `ok`/`degraded`. It is the trust
+  surface for integrators and the data source for the alert below.
+- **Source alert** ([`ops/check-sources.sh`](../ops/check-sources.sh)): a cron
+  polls the endpoint and mails via `exim4` when it is not `ok` (or unreachable).
+  Silent when healthy. Install (every 20 min):
+  ```
+  # crontab -e (as the deploy user), set ALERT_MAILTO to a real inbox/alias
+  */20 * * * * ALERT_MAILTO=ops@example.org /opt/geohazard/ops/check-sources.sh
+  ```
+  Known limitation: blind to a full host outage (nothing left to send the mail).
+- **Structured logs**: the API runs uvicorn with `--log-config log_config.json`
+  (baked into the image), emitting JSON with a `request_id` per request. Verify:
+  `docker logs geohazard-api | tail -1` should be a JSON line.
+- **`GET /metrics`** (Prometheus) is app-level and PRIVATE. Block it at the edge
+  in the Caddyfile so only a co-located scraper (docker network) can reach it:
+  ```
+  geohazard.ajustino.dev {
+      # ... existing TLS / headers / reverse_proxy ...
+      handle /metrics {
+          respond 404
+      }
+  }
+  ```
+  Reload: `sudo systemctl reload caddy` (or `caddy reload`). Confirm 404 from
+  outside; a scraper on the docker network hits `http://geohazard-api:8000/metrics`.

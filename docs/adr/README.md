@@ -22,3 +22,5 @@ Context / Decision / Consequences sections.
 | [0015](0015-effis-http-adapter-gwis-mapfile.md)        | EFFIS HTTP adapter reads the gwis mapfile                                             | Accepted | 2026-07-04 |
 | [0016](0016-event-lifecycle-active-semantics.md)       | Per-source event lifecycle and active semantics                                       | Accepted | 2026-07-04 |
 | [0017](0017-api-availability-defenses.md)              | API availability defenses (rate limit, cluster bounds, timeouts, analytics semaphore) | Accepted | 2026-07-05 |
+| [0018](0018-backups-and-disaster-recovery.md)          | Backups and disaster recovery                                                         | Accepted | 2026-07-05 |
+| [0019](0019-operational-observability.md)              | Operational observability (sources status, JSON logs, metrics, alerting)              | Accepted | 2026-07-05 |
