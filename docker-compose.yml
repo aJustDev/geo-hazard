@@ -1,6 +1,7 @@
 # Compose de desarrollo: solo la base de datos. La API corre en el host con
-# `uv run uvicorn app.main:app --reload`. Puerto 5433 para convivir con otras
-# instancias locales de Postgres.
+# `uv run uvicorn app.main:app --reload --log-config log_config.json` (el
+# --log-config activa los logs JSON con request-id, ADR-0019). Puerto 5433 para
+# convivir con otras instancias locales de Postgres.
 services:
   db:
     image: postgis/postgis:17-3.5
