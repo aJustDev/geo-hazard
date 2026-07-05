@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, Response
 
 from app.analytics.schemas.earthquakes import EarthquakeFrequencyResponse
 from app.analytics.schemas.warnings import WarningsSummaryResponse
@@ -20,6 +20,9 @@ Year = Annotated[int, Query(ge=2000, le=2100)]
 @limiter.limit(EXPENSIVE_LIMIT)
 async def burned_area(
     request: Request,
+    # slowapi (headers_enabled=True) inyecta X-RateLimit-* en este `response`;
+    # sin el parametro el decorador @limiter.limit lanza y la ruta da 500.
+    response: Response,
     year: Year,
     province: Annotated[
         str | None, Query(pattern=r"^\d{2}$", description="INE province code, e.g. 06")
@@ -33,6 +36,7 @@ async def burned_area(
 @limiter.limit(EXPENSIVE_LIMIT)
 async def earthquake_frequency(
     request: Request,
+    response: Response,
     year: Year,
     min_magnitude: Annotated[float | None, Query(ge=0, le=10)] = None,
 ):
@@ -44,6 +48,7 @@ async def earthquake_frequency(
 @limiter.limit(EXPENSIVE_LIMIT)
 async def warnings_summary(
     request: Request,
+    response: Response,
     year: Year,
     phenomenon: Annotated[
         str | None, Query(pattern=r"^[A-Z]{2}$", description="Meteoalerta code, e.g. AT")

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 from app.core.rate_limit import EXPENSIVE_LIMIT, limiter
 from app.deps.repository import get_repo
@@ -93,6 +93,9 @@ async def near_events(
 @limiter.limit(EXPENSIVE_LIMIT)
 async def cluster_events(
     request: Request,
+    # slowapi con headers_enabled=True inyecta las cabeceras X-RateLimit-* en
+    # este `response`; sin el parametro el decorador lanza y la ruta da 500.
+    response: Response,
     repo: Annotated[HazardEventRepo, Depends(get_repo(HazardEventRepo))],
     eps_m: Annotated[float, Query(gt=0, le=200_000, description="DBSCAN neighborhood in meters")],
     bbox: Annotated[

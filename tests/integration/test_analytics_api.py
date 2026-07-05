@@ -106,3 +106,23 @@ async def test_parametros_invalidos_422(
 
     assert bad_province.status_code == 422
     assert bad_phenomenon.status_code == 422
+
+
+async def test_endpoint_expensive_con_limiter_habilitado_no_da_500(
+    analytics_client: tuple[httpx.AsyncClient, async_sessionmaker],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regresion: con headers_enabled=True el decorador @limiter.limit exige que
+    # el endpoint declare `response: Response` para inyectar las cabeceras
+    # X-RateLimit-*; sin el, slowapi lanza y la ruta da 500 en produccion. La
+    # suite desactiva el limiter (tests/conftest.py), asi que aqui lo habilitamos
+    # para ejercitar el camino real del decorador, que es lo que fallaba.
+    from app.core.rate_limit import limiter
+
+    client, _ = analytics_client
+    monkeypatch.setattr(limiter, "enabled", True)
+
+    response = await client.get("/v1/analytics/earthquakes/frequency", params={"year": 2026})
+
+    assert response.status_code == 200
+    assert any("ratelimit" in header.lower() for header in response.headers)
