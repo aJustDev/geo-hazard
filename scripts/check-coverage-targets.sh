@@ -17,5 +17,9 @@ check "app/hazards/repos/*" 85
 check "app/hazards/services/*" 85
 check "app/analytics/use_cases/*" 90
 check "app/analytics/queries/*" 85
+# El nucleo de concurrencia (outbox y jobs) es donde viven los invariantes
+# mas criticos; sin target propio, un hueco alli no lo caza ningun gate.
+check "app/core/events/*" 85
+check "app/core/jobs/*" 85
 
 echo "OK: todos los targets por modulo cumplidos"

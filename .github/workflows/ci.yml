@@ -23,9 +23,10 @@ jobs:
         run: uv run mypy app
       - name: Architecture (import-linter)
         run: uv run lint-imports
+      # Bloqueante desde el triage de 2026-07-05 (cero CVEs conocidos): una
+      # dependencia vulnerable debe tumbar el CI, no ser un aviso ignorable.
       - name: Dependency audit (pip-audit)
         run: uv run pip-audit
-        continue-on-error: true
       - name: Dockerfile lint (hadolint)
         uses: hadolint/hadolint-action@v3.1.0
         with:
