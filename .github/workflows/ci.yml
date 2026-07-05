@@ -43,19 +43,29 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build image
         run: docker build -t geohazard:prod .
-      - name: Install trivy
-        run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
-            | sh -s -- -b /usr/local/bin v0.68.2
       # HIGH/CRITICAL con fix disponible tumban el CI; ignore-unfixed evita
-      # romper por CVEs de la imagen base aun sin parche. La DB de
-      # vulnerabilidades se actualiza en cada run aunque el binario este pineado.
+      # romper por CVEs de la imagen base aun sin parche. Se usa la action
+      # oficial (gestiona la instalacion y la cache de la DB de vulnerabilidades).
       - name: Vulnerability scan (trivy)
-        run: >-
-          trivy image --scanners vuln --severity HIGH,CRITICAL
-          --ignore-unfixed --exit-code 1 --no-progress geohazard:prod
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: geohazard:prod
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
       - name: SBOM (CycloneDX)
-        run: trivy image --format cyclonedx --output sbom.json --no-progress geohazard:prod
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: geohazard:prod
+          scan-type: image
+          format: cyclonedx
+          output: sbom.json
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
