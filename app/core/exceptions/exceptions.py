@@ -37,3 +37,18 @@ class BusinessValidationError(DomainException):
 class ExternalServiceError(DomainException):
     status_code = 502
     code = "external_service_error"
+
+
+class ServiceOverloadedError(DomainException):
+    """El servicio esta saturado y rechaza la peticion en vez de degradarse.
+
+    Lleva `retry_after` (segundos) para que el handler emita la cabecera
+    Retry-After; hoy lo usa el plano analitico al agotar sus slots (ADR-0017).
+    """
+
+    status_code = 503
+    code = "service_overloaded"
+
+    def __init__(self, message: str | None = None, *, retry_after: int = 1) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after

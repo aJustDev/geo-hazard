@@ -4,6 +4,7 @@ from app.core.exceptions.exceptions import (
     DomainException,
     ExternalServiceError,
     NotFoundError,
+    ServiceOverloadedError,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "DomainException",
     "ExternalServiceError",
     "NotFoundError",
+    "ServiceOverloadedError",
 ]

@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
+from app.analytics.concurrency import run_analytics
 from app.analytics.paths import PROVINCES_PARQUET, source_snapshot
 from app.analytics.queries.wildfires import burned_area_by_month
 from app.analytics.schemas.wildfires import BurnedAreaResponse, BurnedAreaRow
-from app.core.concurrency import run_blocking
 
 
 @dataclass(slots=True)
@@ -18,7 +18,7 @@ class BurnedAreaUseCase:
         snapshot = source_snapshot("effis")
         if not snapshot.exists():
             return BurnedAreaResponse(year=year, rows=[])
-        rows = await run_blocking(
+        rows = await run_analytics(
             burned_area_by_month,
             snapshot=str(snapshot),
             provinces=str(PROVINCES_PARQUET),

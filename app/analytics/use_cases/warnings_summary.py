@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
+from app.analytics.concurrency import run_analytics
 from app.analytics.paths import source_snapshot
 from app.analytics.queries.warnings import summary_by_phenomenon
 from app.analytics.schemas.warnings import WarningsSummaryResponse, WarningsSummaryRow
-from app.core.concurrency import run_blocking
 
 
 @dataclass(slots=True)
@@ -14,7 +14,7 @@ class WarningsSummaryUseCase:
         snapshot = source_snapshot("aemet")
         if not snapshot.exists():
             return WarningsSummaryResponse(year=year, rows=[])
-        rows = await run_blocking(
+        rows = await run_analytics(
             summary_by_phenomenon,
             snapshot=str(snapshot),
             year=year,

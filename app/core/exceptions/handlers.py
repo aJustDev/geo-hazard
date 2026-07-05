@@ -13,9 +13,14 @@ logger = logging.getLogger(__name__)
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainException)
     async def _domain(_: Request, exc: DomainException) -> JSONResponse:
+        # Retry-After solo si la excepcion lo lleva (p.ej. ServiceOverloadedError
+        # del plano analitico saturado, ADR-0017); el resto del envelope intacto.
+        retry_after = getattr(exc, "retry_after", None)
+        headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.message, "code": exc.code},
+            headers=headers,
         )
 
     @app.exception_handler(RequestValidationError)

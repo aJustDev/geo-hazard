@@ -2,7 +2,11 @@ import httpx
 from fastapi import FastAPI
 from sqlalchemy.exc import IntegrityError
 
-from app.core.exceptions.exceptions import ConflictError, NotFoundError
+from app.core.exceptions.exceptions import (
+    ConflictError,
+    NotFoundError,
+    ServiceOverloadedError,
+)
 from app.core.exceptions.handlers import register_exception_handlers
 
 
@@ -17,6 +21,10 @@ def make_app() -> FastAPI:
     @app.get("/conflict")
     async def _conflict() -> None:
         raise ConflictError("ya existe")
+
+    @app.get("/overloaded")
+    async def _overloaded() -> None:
+        raise ServiceOverloadedError("busy", retry_after=1)
 
     @app.get("/integrity")
     async def _integrity() -> None:
@@ -62,3 +70,11 @@ async def test_integrity_error_es_409() -> None:
         response = await client.get("/integrity")
     assert response.status_code == 409
     assert response.json()["code"] == "integrity_conflict"
+
+
+async def test_service_overloaded_es_503_con_retry_after() -> None:
+    async with make_client(make_app()) as client:
+        response = await client.get("/overloaded")
+    assert response.status_code == 503
+    assert response.json() == {"detail": "busy", "code": "service_overloaded"}
+    assert response.headers["Retry-After"] == "1"
