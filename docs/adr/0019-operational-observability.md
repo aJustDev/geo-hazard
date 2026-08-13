@@ -46,6 +46,7 @@ Four parts.
 4. **Alerting by cron + local mail** ([`ops/check-sources.sh`](../../ops/check-sources.sh)):
    a cron job polls `/v1/sources/status` and, when the status is not `ok` or the
    API does not answer, sends a mail via the host's `exim4`. Silent when healthy.
+   _Superseded on 2026-08-13, see the amendment below._
 
 ## Consequences
 
@@ -71,3 +72,34 @@ Four parts.
   switch, out of scope here. We deliberately do NOT run Prometheus/Alertmanager:
   it is disproportionate for a single small host, and cron+mail covers the one
   question that matters today ("did a source go stale?").
+
+## Amendment (2026-08-13): edge-triggered alerts, push instead of mail
+
+Part 4 as shipped was wrong in two ways, and a month of production said so.
+
+**It went nowhere.** cartagena's `exim4` runs in `local` mode with no
+smarthost, so `mail` only ever wrote to `/var/mail/ductual`. Between 2026-07-06
+and 2026-08-08 it accumulated **571 alerts that nobody read**.
+
+**It was level-triggered.** The cron re-sent the same alert every 20 minutes for
+as long as a source stayed degraded, so those 571 messages were only **26 real
+episodes**. The distribution is the opposite of the intuition: `aemet` degraded
+16 times and `effis` only 8, but the EFFIS outages ran 56h, 32h and 24h without
+a break, which is what filled the mailbox.
+
+Changed:
+
+- The alert now goes through the host notifier `notify-cartagena.sh` (ntfy push
+  plus Telegram), the same channel the rest of the host uses.
+- It is **edge-triggered**: it fires when the set of unhealthy sources changes,
+  including the recovery edge, and repeats an open episode once every 24h so a
+  multi-day outage does not disappear after one message. State lives in
+  `~/.local/state/geohazard-sources.state`.
+- **Severity is per source.** `aemet` and `ign` feed weather warnings and
+  earthquakes, so they page at priority 4; a full API outage pages at 5. EFFIS
+  alone drops to priority 3, because ADR-0015 already classifies the gwis
+  MapServer as intermittent by design (HTTP 500 for hours, retried next cycle,
+  nothing corrupted) and explicitly asks for no human to be paged on it.
+
+The host-outage gap is unchanged, and is now genuinely covered by the external
+dead-man's switch (`ductual-healthcheck.timer` pinging healthchecks.io).
