@@ -52,7 +52,8 @@ Local, tested backups now; offsite prepared but deferred.
   to confirm the counts match.
 - **Offsite is a marked hook, deferred.** `backup.sh` has an explicit place to
   push the daily artifacts with restic once a destination is chosen. Until then
-  the coverage is explicit (see below).
+  the coverage is explicit (see below). _Superseded on 2026-08-13: the hook is
+  now a real upload to R2. See the amendment._
 
 ## Consequences
 
@@ -64,9 +65,37 @@ Local, tested backups now; offsite prepared but deferred.
 - **What is NOT covered, and accepted**: total loss of the VPS (disk failure,
   provider incident). The backups live on the same host. This is a deliberate,
   documented risk while offsite storage is unprovisioned; the restic hook is in
-  place so closing it is additive, not a rewrite.
+  place so closing it is additive, not a rewrite. _Superseded on 2026-08-13:
+  total loss of the VPS is now covered. See the amendment._
 - The backup user must be able to write to `BACKUP_DIR`; if it cannot, the
   pre-migration snapshot is skipped with a warning rather than failing the
   deploy.
 - Backups are excluded from git (`.gitignore`) as a belt-and-suspenders measure
   even though the default destination is outside the tree.
+
+## Amendment (2026-08-13): the offsite hook is now a real upload
+
+A host-wide review of cartagena measured what the deferral actually cost: of
+the 288 MB of database data on the machine, only 38 MB (ductual's) had any copy
+outside it. geohazard's 112 MB of backups sat on the same disk as the database
+they protect, and two sibling projects had no backups at all. A copy on the
+same disk defends against a bad migration, not against losing the host — and
+losing the host is the scenario that was being planned for.
+
+The destination decision that was pending is resolved by reuse rather than by
+procurement: ductual already backs up to a Cloudflare R2 bucket with an
+IP-filtered token, and the same credentials file (`/etc/ductual/backup.env`)
+now serves every project on the host, each writing under its own prefix.
+`rclone` replaced `restic` for the same reason — it is what already worked on
+this machine.
+
+- Both daily artifacts go up, dump and volume tar. The GeoParquet volume is the
+  irreproducible one (ADR-0007), so it is precisely what an offsite copy exists
+  for.
+- The upload is additive and non-fatal by design: with no credentials file the
+  local backup still completes and logs a warning. A failed upload does fail
+  the run, which now pages through the host notifier.
+- Remote retention is the bucket's lifecycle rule, not this script's `find`.
+
+RPO and RTO for host loss are now the same as for the other failure modes:
+up to 24h, and a `restore.sh` run against a downloaded dump.

@@ -5,15 +5,18 @@
 #   2) copia del volumen de datos (snapshots GeoParquet): es el unico activo
 #      IRREPRODUCIBLE; los upstreams solo sirven ventanas rodantes (ADR-0007).
 # Retencion: 7 diarios + 4 semanales (el semanal se puebla los domingos).
-# Destino: local. El offsite (restic) esta pospuesto; ver el hueco marcado
-# abajo (HOOK offsite). Cubre "migracion mala" y corrupcion de volumen, NO la
-# perdida del VPS entero (riesgo aceptado, ADR-0018).
+# Destino: local mas copia off-site en R2 desde el 2026-08-13. Cubre
+# "migracion mala", corrupcion de volumen y perdida del VPS entero. Hasta esa
+# fecha el offsite estaba pospuesto y la perdida del host era riesgo aceptado
+# (ADR-0018); dejo de serlo al comprobar que el 87 % de los datos de la
+# maquina no tenia ninguna copia fuera de ella.
 #
 # Config por entorno (todo con defaults de produccion):
 #   BACKUP_DIR    destino, FUERA del checkout (git reset --hard no lo toca)
 #   ENV_FILE      .env de runtime del que se leen DB_USER/DB_NAME
 #   DB_CONTAINER  contenedor de Postgres
 #   DATA_VOLUME   volumen Docker con los GeoParquet
+#   R2_ENV_FILE   credenciales del bucket de backups
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/geohazard}"
@@ -21,6 +24,10 @@ ENV_FILE="${ENV_FILE:-$APP_DIR/.env}"
 BACKUP_DIR="${BACKUP_DIR:-/srv/geohazard-backups}"
 DB_CONTAINER="${DB_CONTAINER:-geohazard-db}"
 DATA_VOLUME="${DATA_VOLUME:-geohazard_geohazard_data}"
+# Las credenciales R2 son del host, compartidas con los demas backups. Viven
+# bajo /etc/ductual por razones historicas: ductual fue el primero en tenerlas.
+R2_ENV_FILE="${R2_ENV_FILE:-/etc/ductual/backup.env}"
+R2_PREFIX="${R2_PREFIX:-geohazard}"
 
 log() { echo "[backup $(date -Iseconds)] $*"; }
 die() { log "ERROR: $*"; exit 1; }
@@ -85,9 +92,35 @@ fi
 find "$DAILY" -type f -name 'geohazard-*' -mtime +7 -delete
 find "$WEEKLY" -type f -name 'geohazard-*' -mtime +28 -delete
 
-# HOOK offsite (pospuesto, ADR-0018): cuando se elija destino, empujar aqui el
-# diario recien creado con restic, p.ej.:
-#   restic -r "$RESTIC_REPO" backup "$db_out" "$data_out"
-# El resto del script no cambia; el offsite es aditivo.
+# Off-site a R2 (S3-compatible), aditivo: si falta el fichero de credenciales
+# el backup local sigue siendo valido. Se suben las dos piezas, porque el
+# volumen de GeoParquet es el activo irreproducible (ADR-0007) y perderlo con
+# el host seria lo unico que no se puede reconstruir desde los upstreams.
+if [ -f "$R2_ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$R2_ENV_FILE"
+  set +a
+  if [ -n "${R2_ACCESS_KEY_ID:-}" ] && [ -n "${R2_BUCKET_NAME:-}" ]; then
+    for f in "$db_out" "${data_out:-}"; do
+      [ -n "$f" ] && [ -f "$f" ] || continue
+      log "off-site -> R2:${R2_BUCKET_NAME}/${R2_PREFIX}/daily/$(basename "$f")"
+      docker run --rm -v "$BACKUP_DIR:/data:ro" \
+        -e RCLONE_CONFIG_R2_TYPE=s3 \
+        -e RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
+        -e RCLONE_CONFIG_R2_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+        -e RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+        -e RCLONE_CONFIG_R2_ENDPOINT="$R2_ENDPOINT_URL" \
+        rclone/rclone copyto --s3-no-check-bucket \
+        "/data/daily/$(basename "$f")" \
+        "R2:${R2_BUCKET_NAME}/${R2_PREFIX}/daily/$(basename "$f")" \
+        || die "subida a R2 fallida: $(basename "$f")"
+    done
+  else
+    log "WARN: $R2_ENV_FILE sin R2_ACCESS_KEY_ID/R2_BUCKET_NAME; omito off-site"
+  fi
+else
+  log "WARN: no existe $R2_ENV_FILE; backup solo local (sin off-site)"
+fi
 
 log "backup ok: $(du -sh "$BACKUP_DIR" | cut -f1) en $BACKUP_DIR"

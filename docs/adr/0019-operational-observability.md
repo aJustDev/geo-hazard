@@ -71,7 +71,9 @@ Four parts.
   sends the mail. Accepted for now; the gap closes with an external dead-man's
   switch, out of scope here. We deliberately do NOT run Prometheus/Alertmanager:
   it is disproportionate for a single small host, and cron+mail covers the one
-  question that matters today ("did a source go stale?").
+  question that matters today ("did a source go stale?"). _The second half of
+  that sentence was wrong about the host and is corrected in the amendment
+  below; the conclusion for geohazard still holds._
 
 ## Amendment (2026-08-13): edge-triggered alerts, push instead of mail
 
@@ -103,3 +105,25 @@ Changed:
 
 The host-outage gap is unchanged, and is now genuinely covered by the external
 dead-man's switch (`ductual-healthcheck.timer` pinging healthchecks.io).
+
+### Correction: a Prometheus stack does run on this host
+
+The original text claims we do not run Prometheus/Alertmanager because it would
+be disproportionate for a single small host. That was never true of the host.
+cartagena has been running Prometheus, Alertmanager, Grafana, Loki, Tempo,
+Alloy, node-exporter, cAdvisor and postgres-exporter for months — nine of its
+eighteen containers — with eight alert rules and a working SMTP path. It serves
+the sibling project (ductual) and scrapes nothing else.
+
+That stack stays scoped to ductual **by decision, not by oversight**. geohazard,
+apsis and shade are small side projects serving `ajustino.dev`; the question
+worth alerting on for them is "did ingest go stale?", which the edge-triggered
+cron above answers in fifteen lines and one push notification. Wiring three more
+targets into a Grafana stack would add operational surface without answering a
+question anyone is asking.
+
+So the decision stands and the reasoning is replaced: geohazard stays out of
+Prometheus because metrics-based alerting is disproportionate **for geohazard**,
+not because the host cannot host it. The practical consequence is that the
+`/metrics` endpoint this ADR exposes has no consumer, and the Caddy rule that
+returns 404 for it publicly is the whole of its access policy.

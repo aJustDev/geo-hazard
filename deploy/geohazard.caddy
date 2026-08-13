@@ -1,0 +1,19 @@
+geohazard.ajustino.dev {
+	encode gzip zstd
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+	}
+	tls {
+		protocols tls1.3
+		ciphers TLS_AES_256_GCM_SHA384 TLS_AES_128_GCM_SHA256 TLS_CHACHA20_POLY1305_SHA256
+	}
+	# /metrics no lo consume nadie: el Prometheus del host solo raspa ductual, y
+	# geohazard se queda fuera a proposito (ADR-0019). Se bloquea igual en publico.
+	@metrics path /metrics
+	respond @metrics 404
+
+	reverse_proxy localhost:8002
+}
