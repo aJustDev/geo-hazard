@@ -13,6 +13,14 @@ services:
       POSTGRES_DB: geohazard_dev
     ports:
       - "127.0.0.1:5433:5432"
+    # Por TCP a proposito: durante el initdb el servidor temporal solo escucha
+    # en el socket unix, y un pg_isready por socket daria "listo" antes de
+    # tiempo. Con esto `docker compose up --wait` (just db) espera de verdad.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U geohazard -d geohazard_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
     volumes:
       - geohazard_pgdata:/var/lib/postgresql/data
 
