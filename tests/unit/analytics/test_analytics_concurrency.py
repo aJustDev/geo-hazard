@@ -5,19 +5,13 @@ indefinidamente: se rechaza con ServiceOverloadedError (503) tras el timeout
 corto de adquisicion.
 """
 
-import time
+import threading
 
 import anyio
 import pytest
 
 from app.analytics import concurrency
 from app.core.exceptions.exceptions import ServiceOverloadedError
-
-
-def _slow() -> str:
-    # Sincrono, corre en el threadpool via run_blocking; mantiene el slot.
-    time.sleep(0.3)
-    return "done"
 
 
 def _fast() -> str:
@@ -28,13 +22,26 @@ async def test_plano_saturado_rechaza_con_503(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(concurrency._limiter, "total_tokens", 1)
     monkeypatch.setattr(concurrency.settings, "ANALYTICS_ACQUIRE_TIMEOUT_SECONDS", 0.05)
 
+    started = threading.Event()
+    release = threading.Event()
+
+    def _slow() -> str:
+        # Sincrono, corre en el threadpool via run_blocking: retiene el unico
+        # slot hasta que el test lo suelta (sin sleeps que dependan de la carga).
+        started.set()
+        release.wait(timeout=5)
+        return "done"
+
     async with anyio.create_task_group() as tg:
         tg.start_soon(concurrency.run_analytics, _slow)
-        # Deja que el primero adquiera el unico slot y entre en la query.
-        await anyio.sleep(0.1)
+        while not started.is_set():
+            await anyio.sleep(0.005)
 
-        with pytest.raises(ServiceOverloadedError) as excinfo:
-            await concurrency.run_analytics(_fast)
+        try:
+            with pytest.raises(ServiceOverloadedError) as excinfo:
+                await concurrency.run_analytics(_fast)
+        finally:
+            release.set()
 
     assert excinfo.value.status_code == 503
     assert excinfo.value.retry_after == 1

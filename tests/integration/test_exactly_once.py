@@ -9,7 +9,6 @@ la fila en Postgres, no en memoria.
 """
 
 import asyncio
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -27,22 +26,6 @@ from app.core.jobs.registry import job_registry
 from app.core.jobs.worker import JobWorker
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
-
-
-@pytest.fixture
-def isolated_dispatcher() -> Iterator[None]:
-    snapshot = {k: list(v) for k, v in dispatcher._handlers.items()}
-    yield
-    dispatcher._handlers.clear()
-    dispatcher._handlers.update(snapshot)
-
-
-@pytest.fixture
-def isolated_registry() -> Iterator[None]:
-    snapshot = dict(job_registry._jobs)
-    yield
-    job_registry._jobs.clear()
-    job_registry._jobs.update(snapshot)
 
 
 async def test_outbox_despacha_una_vez_con_dos_workers(

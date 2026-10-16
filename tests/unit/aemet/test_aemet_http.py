@@ -11,7 +11,10 @@ from app.core.aemet.drivers.http import LAST_BULLETIN_URL, AemetHttpClient
 from app.core.aemet.exceptions import AemetProtocolError, AemetTransientError
 from app.core.config import settings
 
-FIXTURE = Path(__file__).parents[2] / "fixtures" / "aemet" / "cap_aviso_naranja_ta.xml"
+FIXTURES = Path(__file__).parents[2] / "fixtures" / "aemet"
+FIXTURE = FIXTURES / "cap_aviso_naranja_ta.xml"
+# Sobre real del primer salto, capturado de la API (docs/sources.md).
+FIRST_HOP = FIXTURES / "first_hop_response.json"
 
 DATOS_URL = "https://opendata.aemet.es/opendata/sh/tar-de-prueba"
 
@@ -39,10 +42,12 @@ def _client(handler) -> AemetHttpClient:
 async def test_flujo_de_dos_saltos_completo() -> None:
     seen: dict[str, httpx.Request] = {}
 
+    envelope = FIRST_HOP.read_text()
+
     def handler(request: httpx.Request) -> httpx.Response:
         if str(request.url) == LAST_BULLETIN_URL:
             seen["primero"] = request
-            return httpx.Response(200, text=_envelope())
+            return httpx.Response(200, text=envelope)
         seen["segundo"] = request
         return httpx.Response(200, content=_tar_with_caps(count=3))
 
@@ -53,7 +58,7 @@ async def test_flujo_de_dos_saltos_completo() -> None:
     # La key viaja SOLO en la cabecera del primer salto.
     assert seen["primero"].headers["api_key"] == "clave-de-prueba"
     assert "api_key" not in seen["segundo"].headers
-    assert str(seen["segundo"].url) == DATOS_URL
+    assert str(seen["segundo"].url) == json.loads(envelope)["datos"]
 
 
 async def test_cuota_agotada_es_transitorio() -> None:

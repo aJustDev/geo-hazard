@@ -1,5 +1,4 @@
 import asyncio
-from collections.abc import Iterator
 
 import pytest
 from sqlalchemy import select
@@ -12,14 +11,6 @@ from app.core.events.models import OutboxEventORM
 from app.core.events.worker import OutboxWorker
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
-
-
-@pytest.fixture
-def isolated_dispatcher() -> Iterator[None]:
-    snapshot = {k: list(v) for k, v in dispatcher._handlers.items()}
-    yield
-    dispatcher._handlers.clear()
-    dispatcher._handlers.update(snapshot)
 
 
 async def _fetch(factory: async_sessionmaker, event_type: str) -> OutboxEventORM:

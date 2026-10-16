@@ -1,5 +1,4 @@
 import asyncio
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -12,14 +11,6 @@ from app.core.jobs.registry import job_registry
 from app.core.jobs.worker import JobWorker
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
-
-
-@pytest.fixture
-def isolated_registry() -> Iterator[None]:
-    snapshot = dict(job_registry._jobs)
-    yield
-    job_registry._jobs.clear()
-    job_registry._jobs.update(snapshot)
 
 
 async def _seed_job(factory: async_sessionmaker, **kwargs: object) -> None:

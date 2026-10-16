@@ -38,7 +38,9 @@ async def test_handle_event_sin_handler_reintenta_en_vez_de_procesar() -> None:
     session.flush.assert_awaited_once()
 
 
-async def test_handle_event_failure_increments_retry_and_backs_off() -> None:
+async def test_handle_event_failure_increments_retry_and_backs_off(
+    isolated_dispatcher: None,
+) -> None:
     @dispatcher.register("outbox.test.boom")
     async def _boom(payload: dict[str, Any]) -> None:
         raise RuntimeError("x")
@@ -56,7 +58,9 @@ async def test_handle_event_failure_increments_retry_and_backs_off() -> None:
     assert event.handler_state["_boom"]["status"] == "failed"
 
 
-async def test_handle_event_dead_letters_when_retries_exhausted() -> None:
+async def test_handle_event_dead_letters_when_retries_exhausted(
+    isolated_dispatcher: None,
+) -> None:
     # La rama mas importante en operacion: al agotar max_retries el evento
     # pasa a FAILED con last_error y NO se reprograma (dead-letter).
     @dispatcher.register("outbox.test.dead")
