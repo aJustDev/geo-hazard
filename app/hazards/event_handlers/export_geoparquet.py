@@ -19,6 +19,7 @@ from app.core.concurrency import run_blocking
 from app.core.config import settings
 from app.core.db import async_session_factory
 from app.core.events.dispatcher import dispatcher
+from app.hazards.events import BATCH_INGESTED
 from app.hazards.repos.hazard_event import HazardEventRepo
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ _SCHEMA = pa.schema(
 )
 
 
-@dispatcher.register("hazards.batch_ingested")
+@dispatcher.register(BATCH_INGESTED)
 async def export_geoparquet(payload: dict[str, Any]) -> None:
     source = payload["source"]
     async with async_session_factory() as session:

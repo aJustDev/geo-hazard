@@ -6,12 +6,12 @@ from typing import Any
 from app.core.aemet.driver import AemetClient
 from app.core.aemet.types import MSG_TYPE_ALERT, MSG_TYPE_CANCEL, MSG_TYPE_UPDATE, AemetWarning
 from app.core.events.bus import EventBus
+from app.hazards.events import BATCH_INGESTED
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.repos.sync_state import SourceSyncStateRepo
 from app.hazards.services.content_hash import content_hash
 from app.hazards.services.geometry import cap_polygon_to_wkb
 from app.hazards.services.severity import aemet_severity
-from app.hazards.use_cases.sync_effis import BATCH_INGESTED
 
 logger = logging.getLogger(__name__)
 

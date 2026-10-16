@@ -5,12 +5,12 @@ from typing import Any
 from app.core.events.bus import EventBus
 from app.core.ign.driver import IgnClient
 from app.core.ign.types import IgnRecord
+from app.hazards.events import BATCH_INGESTED
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.repos.sync_state import SourceSyncStateRepo
 from app.hazards.services.content_hash import content_hash
 from app.hazards.services.geometry import point_to_wkb
 from app.hazards.services.severity import ign_severity
-from app.hazards.use_cases.sync_effis import BATCH_INGESTED
 
 logger = logging.getLogger(__name__)
 

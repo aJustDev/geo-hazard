@@ -6,6 +6,7 @@ from typing import Any
 from app.core.effis.driver import EffisClient
 from app.core.effis.types import KIND_HOTSPOT, EffisRecord
 from app.core.events.bus import EventBus
+from app.hazards.events import BATCH_INGESTED
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.repos.sync_state import SourceSyncStateRepo
 from app.hazards.services.content_hash import content_hash
@@ -15,7 +16,6 @@ from app.hazards.services.severity import effis_severity
 logger = logging.getLogger(__name__)
 
 SOURCE = "effis"
-BATCH_INGESTED = "hazards.batch_ingested"
 
 
 @dataclass(slots=True)
@@ -103,4 +103,4 @@ class SyncEffisUseCase:
         }
 
 
-__all__ = ["BATCH_INGESTED", "SOURCE", "SyncEffisUseCase"]
+__all__ = ["SOURCE", "SyncEffisUseCase"]
