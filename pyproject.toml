@@ -1,6 +1,6 @@
 [project]
 name = "geo-hazard"
-version = "0.1.0"
+version = "0.2.0"
 description = "Natural-hazard spatial API for the Iberian Peninsula - FastAPI + SQLAlchemy 2 async + PostGIS operational plane, DuckDB/GeoParquet analytical plane, Postgres-native jobs and outbox. No broker."
 readme = "README.md"
 requires-python = ">=3.14"
