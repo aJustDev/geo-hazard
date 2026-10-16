@@ -44,7 +44,10 @@ async def test_dispatch_skips_completed_handlers() -> None:
     assert calls == []
 
 
-async def test_dispatch_no_handlers_is_vacuously_succeeded() -> None:
+async def test_dispatch_sin_handlers_no_es_exito() -> None:
+    # all([]) es True: sin esta guarda, un import olvidado en db_registry
+    # consumiria los eventos como procesados en silencio.
     dispatcher = EventDispatcher()
     result = await dispatcher.dispatch("unknown", {})
-    assert result.all_succeeded
+    assert not result.all_succeeded
+    assert "no handlers registered" in result.errors_summary

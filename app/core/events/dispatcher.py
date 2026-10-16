@@ -27,10 +27,14 @@ class DispatchResult:
 
     @property
     def all_succeeded(self) -> bool:
-        return all(r.success for r in self.results)
+        # Sin resultados no hay exito: all([]) daria True y un evento sin
+        # handlers (import olvidado en db_registry) se marcaria PROCESSED.
+        return bool(self.results) and all(r.success for r in self.results)
 
     @property
     def errors_summary(self) -> str:
+        if not self.results:
+            return "no handlers registered"
         failed = [r for r in self.results if not r.success]
         return "\n---\n".join(f"[{r.handler_name}] {r.error}" for r in failed)
 
@@ -64,7 +68,7 @@ class EventDispatcher:
         """
         handlers = self._handlers.get(event_type, [])
         if not handlers:
-            logger.warning("No handlers registered for event_type=%s", event_type)
+            logger.error("No handlers registered for event_type=%s", event_type)
             return DispatchResult()
 
         completed = completed_handlers or set()

@@ -20,15 +20,17 @@ def _event(**kwargs: Any) -> OutboxEventORM:
     return OutboxEventORM(**base)
 
 
-async def test_handle_event_no_handler_marks_processed() -> None:
+async def test_handle_event_sin_handler_reintenta_en_vez_de_procesar() -> None:
     worker = OutboxWorker()
     session = AsyncMock()
     event = _event(event_type="no.handlers.here")
 
     await worker._handle_event(session, event)
 
-    assert event.status == "PROCESSED"
-    assert event.processed_at is not None
+    assert event.status == "PENDING"
+    assert event.processed_at is None
+    assert event.retry_count == 1
+    assert "no handlers registered" in event.last_error
     session.flush.assert_awaited_once()
 
 
