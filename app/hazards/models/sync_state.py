@@ -21,7 +21,8 @@ class SourceSyncStateORM(Base):
     source: Mapped[str] = mapped_column(String(20), primary_key=True)
     last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # Semantica por fuente: IGN {"last_event_at"}, EFFIS {"etag"}, AEMET {}.
+    # Semantica por fuente: IGN {"last_event_at"}, EFFIS {"burnt_area_ids"},
+    # AEMET {"identifiers"} (los dos ultimos cierran lo que desaparece, ADR-0016).
     cursor: Mapped[dict[str, Any]] = mapped_column(
         JSONB, server_default=text("'{}'::jsonb"), nullable=False
     )

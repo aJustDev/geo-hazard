@@ -6,9 +6,8 @@ root_packages =
 # La infraestructura generica de app.core no debe conocer las capas de arriba
 # ni el dominio. Las unicas aristas core -> hazards permitidas son el wiring:
 # db_registry (composition root que puebla Base.metadata y el dispatcher) y
-# los job handlers por fuente (orquestan la ingesta). Cuando nazca
-# app.analytics (fase DuckDB) se anadira su contrato y el de la frontera
-# hazards <-/-> analytics.
+# los job handlers por fuente (orquestan la ingesta). Los contratos de
+# app.analytics y de la frontera hazards <-/-> analytics estan mas abajo.
 # ---------------------------------------------------------------------------
 [importlinter:contract:core-sin-dependencias-hacia-arriba]
 name = app.core no importa api, deps ni main
