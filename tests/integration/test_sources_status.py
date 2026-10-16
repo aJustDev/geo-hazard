@@ -16,21 +16,28 @@ from app.main import app
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
 
-def _client(factory: async_sessionmaker) -> httpx.AsyncClient:
+@pytest.fixture
+async def client(committing_factory: async_sessionmaker) -> AsyncIterator[httpx.AsyncClient]:
     async def _override() -> AsyncIterator[AsyncSession]:
-        async with factory() as session:
+        async with committing_factory() as session:
             yield session
 
+    # El teardown tras el yield corre aunque falle un assert del test: el
+    # override nunca se queda puesto en el app global para los tests siguientes.
     app.dependency_overrides[get_session] = _override
     transport = httpx.ASGITransport(app=app)
-    return httpx.AsyncClient(transport=transport, base_url="http://test")
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+    app.dependency_overrides.clear()
 
 
 def _by_source(body: dict) -> dict[str, dict]:
     return {s["source"]: s for s in body["sources"]}
 
 
-async def test_status_mezcla_degraded(committing_factory: async_sessionmaker) -> None:
+async def test_status_mezcla_degraded(
+    committing_factory: async_sessionmaker, client: httpx.AsyncClient
+) -> None:
     now = datetime.now(UTC)
     async with committing_factory() as session:
         session.add_all(
@@ -66,8 +73,7 @@ async def test_status_mezcla_degraded(committing_factory: async_sessionmaker) ->
         )
         await session.commit()
 
-    async with _client(committing_factory) as client:
-        response = await client.get("/v1/sources/status")
+    response = await client.get("/v1/sources/status")
 
     assert response.status_code == 200
     body = response.json()
@@ -94,10 +100,10 @@ async def test_status_mezcla_degraded(committing_factory: async_sessionmaker) ->
     assert never["stale"] is True
     assert never["healthy"] is False
 
-    app.dependency_overrides.clear()
 
-
-async def test_status_ok_cuando_todo_sano(committing_factory: async_sessionmaker) -> None:
+async def test_status_ok_cuando_todo_sano(
+    committing_factory: async_sessionmaker, client: httpx.AsyncClient
+) -> None:
     now = datetime.now(UTC)
     async with committing_factory() as session:
         session.add_all(
@@ -120,12 +126,9 @@ async def test_status_ok_cuando_todo_sano(committing_factory: async_sessionmaker
         )
         await session.commit()
 
-    async with _client(committing_factory) as client:
-        response = await client.get("/v1/sources/status")
+    response = await client.get("/v1/sources/status")
 
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
     assert all(s["healthy"] for s in body["sources"])
-
-    app.dependency_overrides.clear()
