@@ -151,6 +151,27 @@ async def test_datos_gigante_es_transitorio(monkeypatch: pytest.MonkeyPatch) -> 
         await _client(handler).fetch_warnings()
 
 
+async def test_sobre_gigante_es_transitorio(monkeypatch: pytest.MonkeyPatch) -> None:
+    # El sobre JSON del primer salto tambien se lee con tope: no puede
+    # materializarse entero en memoria.
+    monkeypatch.setattr(aemet_http, "_MAX_ENVELOPE_BYTES", 16)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"x" * 4096)
+
+    with pytest.raises(AemetTransientError, match="too large"):
+        await _client(handler).fetch_warnings()
+
+
+async def test_cuota_agotada_con_status_http_429_es_transitorio() -> None:
+    # El sobre llega tambien con status distinto de 200: hay que leerlo igual.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, text=_envelope(estado=429, datos=None))
+
+    with pytest.raises(AemetTransientError, match="quota"):
+        await _client(handler).fetch_warnings()
+
+
 async def test_miembro_de_tar_demasiado_grande_es_error_de_protocolo(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

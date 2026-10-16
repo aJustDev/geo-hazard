@@ -7,6 +7,7 @@ URL temporal no la incorpora, asi que nunca acaba en logs de terceros.
 """
 
 import io
+import json
 import logging
 import tarfile
 from urllib.parse import urlparse
@@ -27,6 +28,8 @@ _TIMEOUT_SECONDS = 60.0
 # Guardas anti tar-bomb (ADR-0017): un CAP real son unos pocos KB, asi que un
 # miembro declarado enorme o un exceso de miembros es un archivo hostil/roto.
 _MAX_TAR_MEMBER_BYTES = 10 * 1024 * 1024
+# El sobre JSON del primer salto ocupa unos cientos de bytes.
+_MAX_ENVELOPE_BYTES = 64 * 1024
 _MAX_TAR_MEMBERS = 10000
 
 
@@ -52,11 +55,22 @@ class AemetHttpClient:
         return self._parse_archive(archive)
 
     async def _fetch_archive(self, client: httpx.AsyncClient) -> bytes:
-        envelope_response = await client.get(LAST_BULLETIN_URL, headers={"api_key": self._api_key})
-        if envelope_response.status_code >= 500:
-            raise AemetTransientError(f"AEMET API returned {envelope_response.status_code}")
+        # El estado real viaja dentro del sobre (tambien con status != 200),
+        # asi que el cuerpo se lee con cualquier status.
         try:
-            envelope = envelope_response.json()
+            status_code, raw = await get_capped(
+                client,
+                LAST_BULLETIN_URL,
+                max_bytes=_MAX_ENVELOPE_BYTES,
+                headers={"api_key": self._api_key},
+                read_error_body=True,
+            )
+        except ResponseTooLargeError as exc:
+            raise AemetTransientError(f"AEMET envelope too large: {exc}") from exc
+        if status_code >= 500:
+            raise AemetTransientError(f"AEMET API returned {status_code}")
+        try:
+            envelope = json.loads(raw)
         except ValueError as exc:
             raise AemetProtocolError("AEMET envelope is not JSON") from exc
 

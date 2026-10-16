@@ -20,15 +20,18 @@ async def get_capped(
     max_bytes: int,
     params: dict[str, str] | None = None,
     headers: dict[str, str] | None = None,
+    read_error_body: bool = False,
 ) -> tuple[int, bytes]:
     """GET por streaming con corte por bytes. Devuelve (status_code, body).
 
-    El cuerpo solo se lee si el status es 200: un 4xx/5xx no necesita cuerpo
-    (y podria ser igual de grande). Si el acumulado supera `max_bytes`, aborta
-    con ResponseTooLargeError; quien llama lo mapea a su *TransientError.
+    Por defecto el cuerpo solo se lee si el status es 200: un 4xx/5xx no
+    necesita cuerpo (y podria ser igual de grande). `read_error_body` lo lee
+    con cualquier status, para APIs que explican el error en el cuerpo. Si el
+    acumulado supera `max_bytes`, aborta con ResponseTooLargeError; quien llama
+    lo mapea a su *TransientError.
     """
     async with client.stream("GET", url, params=params, headers=headers) as response:
-        if response.status_code != 200:
+        if response.status_code != 200 and not read_error_body:
             return response.status_code, b""
         body = bytearray()
         async for chunk in response.aiter_bytes():
