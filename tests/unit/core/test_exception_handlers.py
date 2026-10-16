@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from sqlalchemy.exc import IntegrityError
 
 from app.core.exceptions.exceptions import (
-    ConflictError,
+    BusinessValidationError,
     NotFoundError,
     ServiceOverloadedError,
 )
@@ -18,9 +18,9 @@ def make_app() -> FastAPI:
     async def _not_found() -> None:
         raise NotFoundError("Widget", 42)
 
-    @app.get("/conflict")
-    async def _conflict() -> None:
-        raise ConflictError("ya existe")
+    @app.get("/business")
+    async def _business() -> None:
+        raise BusinessValidationError("bbox invalida")
 
     @app.get("/overloaded")
     async def _overloaded() -> None:
@@ -49,11 +49,11 @@ async def test_domain_exception_mapea_status_y_code() -> None:
     assert response.json() == {"detail": "Widget not found (id: 42)", "code": "not_found"}
 
 
-async def test_conflict_usa_mensaje_libre() -> None:
+async def test_business_validation_usa_mensaje_libre() -> None:
     async with make_client(make_app()) as client:
-        response = await client.get("/conflict")
-    assert response.status_code == 409
-    assert response.json() == {"detail": "ya existe", "code": "conflict"}
+        response = await client.get("/business")
+    assert response.status_code == 400
+    assert response.json() == {"detail": "bbox invalida", "code": "business_validation"}
 
 
 async def test_validation_error_422_con_detalle() -> None:

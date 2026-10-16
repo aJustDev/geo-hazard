@@ -24,19 +24,9 @@ class NotFoundError(DomainException):
         super().__init__(f"{entity} not found{suffix}")
 
 
-class ConflictError(DomainException):
-    status_code = 409
-    code = "conflict"
-
-
 class BusinessValidationError(DomainException):
     status_code = 400
     code = "business_validation"
-
-
-class ExternalServiceError(DomainException):
-    status_code = 502
-    code = "external_service_error"
 
 
 class ServiceOverloadedError(DomainException):
