@@ -28,10 +28,6 @@ target_metadata = Base.metadata
 
 
 def _configure_and_run(connection: Connection) -> None:
-    # Las migraciones se eximen del statement_timeout global que fija el compose
-    # (ADR-0017): un DDL largo sobre un dataset grande (p.ej. un CREATE INDEX
-    # tras la ampliacion geografica) no debe abortar un deploy por el techo.
-    connection.exec_driver_sql("SET statement_timeout = 0")
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
@@ -43,6 +39,13 @@ def _configure_and_run(connection: Connection) -> None:
         include_object=alembic_helpers.include_object,
     )
     with context.begin_transaction():
+        # Las migraciones se eximen del statement_timeout global que fija el
+        # compose (ADR-0017): un DDL largo sobre un dataset grande (p.ej. un
+        # CREATE INDEX tras la ampliacion geografica) no debe abortar un deploy.
+        # Va DENTRO de la transaccion de alembic: ejecutado antes, abria una
+        # transaccion implicita que alembic no commiteaba, y la CLI salia con
+        # exit 0 tras deshacer todas las migraciones.
+        connection.exec_driver_sql("SET statement_timeout = 0")
         context.run_migrations()
 
 
