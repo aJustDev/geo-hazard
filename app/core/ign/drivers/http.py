@@ -8,14 +8,13 @@ identificable por cortesia operacional.
 import httpx
 
 from app.core.config import settings
-from app.core.http import ResponseTooLargeError, get_capped
+from app.core.http import USER_AGENT, ResponseTooLargeError, get_capped
 from app.core.ign.exceptions import IgnProtocolError, IgnTransientError
 from app.core.ign.parser import parse_georss
 from app.core.ign.types import IgnRecord
 
 FEED_URL = "https://www.ign.es/ign/RssTools/sismologia.xml"
 _TIMEOUT_SECONDS = 30.0
-_USER_AGENT = "geo-hazard/0.1 (+https://github.com/aJustDev/geo-hazard)"
 
 
 class IgnHttpClient:
@@ -33,7 +32,7 @@ class IgnHttpClient:
             async with httpx.AsyncClient(
                 timeout=_TIMEOUT_SECONDS,
                 transport=self._transport,
-                headers={"User-Agent": _USER_AGENT},
+                headers={"User-Agent": USER_AGENT},
             ) as client:
                 status_code, body = await get_capped(
                     client, FEED_URL, max_bytes=settings.HTTP_MAX_RESPONSE_BYTES

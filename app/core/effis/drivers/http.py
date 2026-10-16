@@ -17,7 +17,7 @@ from app.core.config import settings
 from app.core.effis.exceptions import EffisProtocolError, EffisTransientError
 from app.core.effis.parser import parse_burnt_areas, parse_hotspots
 from app.core.effis.types import EffisRecord
-from app.core.http import ResponseTooLargeError, get_capped
+from app.core.http import USER_AGENT, ResponseTooLargeError, get_capped
 
 BASE_URL = "https://maps.effis.emergency.copernicus.eu/gwis"
 HOTSPOTS_LAYER = "all.hs.week"
@@ -28,7 +28,6 @@ BURNT_AREAS_LAYER = "nrt.ba.poly.week"
 # IGN publica sismos fronterizos. Se ingiere tal cual (ADR-0015).
 _BBOX_SPAIN = "-19,27,5,44"
 _TIMEOUT_SECONDS = 60.0
-_USER_AGENT = "geo-hazard/0.1 (+https://github.com/aJustDev/geo-hazard)"
 
 
 class EffisHttpClient:
@@ -60,7 +59,7 @@ class EffisHttpClient:
             async with httpx.AsyncClient(
                 timeout=_TIMEOUT_SECONDS,
                 transport=self._transport,
-                headers={"User-Agent": _USER_AGENT},
+                headers={"User-Agent": USER_AGENT},
             ) as client:
                 status_code, body = await get_capped(
                     client, BASE_URL, max_bytes=settings.HTTP_MAX_RESPONSE_BYTES, params=params

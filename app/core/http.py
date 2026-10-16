@@ -8,6 +8,12 @@ de agotar la RAM del worker, en vez de materializarse entera con
 
 import httpx
 
+from app.core.config import settings
+
+# User-Agent identificable de los drivers: cortesia operacional con los
+# upstreams (y EFFIS colgaba sin uno). Lleva la version real de la app.
+USER_AGENT = f"geo-hazard/{settings.APP_VERSION} (+https://github.com/aJustDev/geo-hazard)"
+
 
 class ResponseTooLargeError(Exception):
     """El cuerpo de la respuesta supero el tope de bytes permitido."""
@@ -41,4 +47,4 @@ async def get_capped(
         return response.status_code, bytes(body)
 
 
-__all__ = ["ResponseTooLargeError", "get_capped"]
+__all__ = ["USER_AGENT", "ResponseTooLargeError", "get_capped"]

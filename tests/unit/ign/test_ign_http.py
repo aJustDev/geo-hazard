@@ -19,12 +19,15 @@ async def test_feed_ok_devuelve_registros() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen["url"] = str(request.url)
+        seen["user_agent"] = request.headers["user-agent"]
         return httpx.Response(200, content=FIXTURE.read_bytes())
 
     records = await _client(handler).fetch_earthquakes()
 
     assert seen["url"] == FEED_URL
     assert len(records) == 14
+    # User-Agent identificable y con la version real de la app.
+    assert seen["user_agent"].startswith(f"geo-hazard/{settings.APP_VERSION} ")
 
 
 async def test_5xx_es_transitorio() -> None:
