@@ -24,3 +24,4 @@ Context / Decision / Consequences sections.
 | [0017](0017-api-availability-defenses.md)              | API availability defenses (rate limit, cluster bounds, timeouts, analytics semaphore) | Accepted | 2026-07-05 |
 | [0018](0018-backups-and-disaster-recovery.md)          | Backups and disaster recovery                                                         | Accepted | 2026-07-05 |
 | [0019](0019-operational-observability.md)              | Operational observability (sources status, JSON logs, metrics, alerting)              | Accepted | 2026-07-05 |
+| [0020](0020-source-and-zone-configuration-model.md)    | Sources and zones as configuration                                                    | Proposed | 2026-10-16 |
