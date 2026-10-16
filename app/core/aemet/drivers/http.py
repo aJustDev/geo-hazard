@@ -69,8 +69,10 @@ class AemetHttpClient:
             raise AemetTransientError(f"AEMET envelope too large: {exc}") from exc
         if status_code >= 500:
             raise AemetTransientError(f"AEMET API returned {status_code}")
+        # AEMET declara charset=ISO-8859-15: el sobre de exito es ASCII, pero
+        # los de error con tildes no son UTF-8 valido.
         try:
-            envelope = json.loads(raw)
+            envelope = json.loads(raw.decode("iso-8859-15"))
         except ValueError as exc:
             raise AemetProtocolError("AEMET envelope is not JSON") from exc
 

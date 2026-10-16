@@ -78,6 +78,24 @@ async def test_key_rechazada_es_error_de_protocolo() -> None:
         await _client(handler).fetch_warnings()
 
 
+async def test_sobre_de_error_en_iso_8859_15_conserva_la_descripcion() -> None:
+    # AEMET declara charset=ISO-8859-15: un sobre con tildes no es UTF-8 valido
+    # y no debe esconder el motivo real tras "not JSON".
+    body = json.dumps(
+        {"descripcion": "Petici\u00f3n no autorizada", "estado": 401}, ensure_ascii=False
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            401,
+            content=body.encode("iso-8859-15"),
+            headers={"content-type": "application/json;charset=ISO-8859-15"},
+        )
+
+    with pytest.raises(AemetProtocolError, match="estado=401: 'Petici\u00f3n no autorizada'"):
+        await _client(handler).fetch_warnings()
+
+
 async def test_5xx_es_transitorio() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(503)
