@@ -8,7 +8,10 @@ license = "MIT"
 authors = [{ name = "Adrian Justino Maestre", email = "ajustinodev@proton.me" }]
 keywords = ["fastapi", "postgis", "duckdb", "geoparquet", "geospatial", "outbox", "postgres", "copernicus"]
 dependencies = [
-    "fastapi[standard]>=0.136",
+    # Sin el extra [standard]: arrastra fastapi-cli/fastapi-cloud-cli (y con ellos
+    # sentry-sdk y el SDK/exporters de opentelemetry) a la imagen, y la app no usa
+    # nada de eso.
+    "fastapi>=0.143",
     "uvicorn[standard]>=0.46",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.31",
@@ -39,7 +42,7 @@ dev = [
     "pytest-cov>=7.1",
     "ruff>=0.11",
     "mypy>=1.20",
-    "testcontainers[postgres]>=4.14",
+    "testcontainers[postgres]>=4.15",
     "import-linter>=2.11",
     "pip-audit>=2.9",
     "pip-licenses>=5.0",
