@@ -27,7 +27,9 @@ fresh data. Real payloads are captured under `tests/fixtures/effis/`.
   since 2019; any date FILTER times out).
 - `bbox=-19,27,5,44` (peninsula + Baleares + Canarias). A bbox is a
   rectangle: neighboring territory inside it (Portugal, north African
-  coast) is ingested as-is, like the IGN feed's border quakes.
+  coast) is ingested as-is, like the IGN feed's border quakes. Since
+  2026-10-16 it is the `EFFIS_BBOX` setting (validated at startup), so
+  widening wildfire coverage is configuration, not code.
 - Axis order: the gwis GeoJSON output serializes coordinates as
   `[lat, lon]` while the request `bbox` is normal lon,lat order. The swap
   to canonical GeoJSON happens ONLY in the EFFIS parser - the boundary

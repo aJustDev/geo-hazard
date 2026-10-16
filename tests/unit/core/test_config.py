@@ -57,3 +57,24 @@ def test_defaults_de_defensas_de_disponibilidad() -> None:
     assert s.ANALYTICS_MAX_CONCURRENCY == 4
     assert s.ANALYTICS_ACQUIRE_TIMEOUT_SECONDS == 0.5
     assert s.HTTP_MAX_RESPONSE_BYTES == 52428800
+
+
+def test_bbox_effis_por_defecto_cubre_peninsula_baleares_y_canarias() -> None:
+    assert make().EFFIS_BBOX == "-19,27,5,44"
+
+
+@pytest.mark.parametrize(
+    "bbox",
+    [
+        "-19,27,5",  # faltan valores
+        "-19,27,5,norte",  # no numerico
+        "5,27,-19,44",  # min_lon >= max_lon
+        "-19,44,5,27",  # min_lat >= max_lat
+        "-19,27,5,95",  # latitud fuera de rango
+        "-190,27,5,44",  # longitud fuera de rango
+        "-19,27,5,nan",  # no finito
+    ],
+)
+def test_bbox_effis_invalido_rechazado(bbox: str) -> None:
+    with pytest.raises(ValidationError, match="EFFIS_BBOX"):
+        make(EFFIS_BBOX=bbox)

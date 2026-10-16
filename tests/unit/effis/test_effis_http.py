@@ -10,8 +10,11 @@ from app.core.effis.exceptions import EffisProtocolError, EffisTransientError
 FIXTURES = Path(__file__).parents[2] / "fixtures" / "effis"
 
 
+BBOX = "-31,27,5,44"
+
+
 def _client(handler) -> EffisHttpClient:
-    return EffisHttpClient(transport=httpx.MockTransport(handler))
+    return EffisHttpClient(bbox=BBOX, transport=httpx.MockTransport(handler))
 
 
 async def test_burnt_areas_ok_devuelve_registros() -> None:
@@ -28,7 +31,8 @@ async def test_burnt_areas_ok_devuelve_registros() -> None:
     assert len(records) == 84
     assert seen["url"].params["typename"] == BURNT_AREAS_LAYER
     assert seen["url"].params["outputFormat"] == "geojson"
-    assert seen["url"].params["bbox"] == "-19,27,5,44"
+    # El rectangulo viene de configuracion (EFFIS_BBOX), no del codigo.
+    assert seen["url"].params["bbox"] == BBOX
 
 
 async def test_hotspots_ok_devuelve_registros() -> None:

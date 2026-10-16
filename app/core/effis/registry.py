@@ -29,7 +29,7 @@ class _EffisClientRegistry:
             return EffisFakeClient()
         from app.core.effis.drivers.http import EffisHttpClient
 
-        return EffisHttpClient()
+        return EffisHttpClient(bbox=settings.EFFIS_BBOX)
 
 
 effis_client_registry = _EffisClientRegistry()

@@ -81,6 +81,11 @@ class Settings(BaseSettings):
     AEMET_DRIVER: str = "fake"
     AEMET_API_KEY: str = ""
 
+    # Rectangulo "min_lon,min_lat,max_lon,max_lat" (EPSG:4326) que se pide a
+    # EFFIS (ADR-0015). El default cubre peninsula + Baleares + Canarias; ampliar
+    # la cobertura de incendios es cambiar este valor, no el codigo.
+    EFFIS_BBOX: str = "-19,27,5,44"
+
     model_config = SettingsConfigDict(
         env_file=f".env.{os.getenv('ENVIRONMENT', 'local')}",
         env_file_encoding="utf-8",
@@ -118,6 +123,21 @@ class Settings(BaseSettings):
                 raise ValueError(f"{name} must be 'fake' or 'http', got {value!r}")
         if self.AEMET_DRIVER == "http" and not self.AEMET_API_KEY:
             raise ValueError("AEMET_API_KEY is required when AEMET_DRIVER='http'")
+        return self
+
+    @model_validator(mode="after")
+    def validate_effis_bbox(self) -> "Settings":
+        # Un bbox mal escrito haria que EFFIS devolviera un error o una capa
+        # vacia en cada sync: mejor tumbar el arranque.
+        try:
+            min_lon, min_lat, max_lon, max_lat = (float(v) for v in self.EFFIS_BBOX.split(","))
+        except ValueError as exc:
+            raise ValueError(
+                f"EFFIS_BBOX must be 'min_lon,min_lat,max_lon,max_lat', got {self.EFFIS_BBOX!r}"
+            ) from exc
+        # NaN no cumple ninguna comparacion, asi que tambien cae aqui.
+        if not (-180 <= min_lon < max_lon <= 180 and -90 <= min_lat < max_lat <= 90):
+            raise ValueError(f"EFFIS_BBOX out of range or inverted: {self.EFFIS_BBOX!r}")
         return self
 
 

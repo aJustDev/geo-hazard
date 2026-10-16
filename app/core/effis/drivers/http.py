@@ -23,21 +23,21 @@ BASE_URL = "https://maps.effis.emergency.copernicus.eu/gwis"
 HOTSPOTS_LAYER = "all.hs.week"
 BURNT_AREAS_LAYER = "nrt.ba.poly.week"
 
-# Rectangulo peninsula + Baleares + Canarias. Un bbox es un rectangulo:
-# incluye territorio vecino (Portugal, norte de Africa), igual que el feed
-# IGN publica sismos fronterizos. Se ingiere tal cual (ADR-0015).
-_BBOX_SPAIN = "-19,27,5,44"
 _TIMEOUT_SECONDS = 60.0
 
 
 class EffisHttpClient:
     """Cumple el Protocol EffisClient contra el WFS real.
 
+    `bbox` es el rectangulo que se pide al WFS (settings.EFFIS_BBOX). Al ser
+    un rectangulo incluye territorio vecino (Portugal, norte de Africa), igual
+    que el feed IGN publica sismos fronterizos; se ingiere tal cual (ADR-0015).
     `transport` es inyectable para tests (httpx.MockTransport): mismo codigo
     de red y de mapeo de errores, sin tocar la red.
     """
 
-    def __init__(self, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
+    def __init__(self, *, bbox: str, transport: httpx.AsyncBaseTransport | None = None) -> None:
+        self._bbox = bbox
         self._transport = transport
 
     async def fetch_hotspots(self) -> list[EffisRecord]:
@@ -53,7 +53,7 @@ class EffisHttpClient:
             "request": "GetFeature",
             "typename": typename,
             "outputFormat": "geojson",
-            "bbox": _BBOX_SPAIN,
+            "bbox": self._bbox,
         }
         try:
             async with httpx.AsyncClient(
