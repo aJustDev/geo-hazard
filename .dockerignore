@@ -26,6 +26,6 @@ htmlcov
 tests
 docs
 .github
-docker-compose.yml
+compose.dev.yml
 Dockerfile
 .dockerignore

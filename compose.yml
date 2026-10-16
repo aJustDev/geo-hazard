@@ -1,4 +1,4 @@
-# Compose de PRODUCCION (el de desarrollo es docker-compose.yml).
+# Compose de PRODUCCION (el de desarrollo es compose.dev.yml).
 # Todo escucha solo en 127.0.0.1: el reverse proxy del host es quien expone
 # la API al exterior. Limites de memoria explicitos: el servidor es pequeno
 # y compartido, y DuckDB/Postgres asumen por defecto que la maquina es suya.
