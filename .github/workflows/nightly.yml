@@ -1,0 +1,22 @@
+name: Nightly
+
+# Fuera de `CI` a proposito: Deploy solo escucha a CI, asi que este workflow
+# nunca despliega. Detecta lo que cambia sin que haya push: CVEs publicados
+# despues del ultimo lock.
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Dependency audit (pip-audit)
+        run: uv run pip-audit
