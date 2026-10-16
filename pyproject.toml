@@ -58,9 +58,10 @@ packages = ["app"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = ["--strict-markers", "-m", "not integration"]
+addopts = ["--strict-markers", "-m", "not integration and not contract"]
 markers = [
     "integration: tests requiring real PostgreSQL/PostGIS via testcontainers",
+    "contract: tests against the real upstream sources (nightly job, network required)",
 ]
 
 [tool.ruff]

@@ -2,7 +2,7 @@ name: Nightly
 
 # Fuera de `CI` a proposito: Deploy solo escucha a CI, asi que este workflow
 # nunca despliega. Detecta lo que cambia sin que haya push: CVEs publicados
-# despues del ultimo lock.
+# despues del ultimo lock y cambios de contrato de los upstreams.
 on:
   schedule:
     - cron: "17 4 * * *"
@@ -20,3 +20,20 @@ jobs:
       - run: uv sync --locked
       - name: Dependency audit (pip-audit)
         run: uv run pip-audit
+
+  # Formato real de EFFIS, IGN y AEMET (tests/contract). Una fuente caida salta
+  # su test; solo un cambio de contrato pone el job en rojo. Sin el secret, el
+  # test de AEMET se salta.
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --locked
+      - name: Contract tests (upstreams reales)
+        env:
+          AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
+        run: uv run pytest -m contract -v
