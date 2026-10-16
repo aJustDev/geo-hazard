@@ -62,21 +62,14 @@ if settings.RATE_LIMIT_ENABLED:
 # Metricas Prometheus (ADR-0019). Se anade DESPUES del rate-limit para quedar
 # por fuera de el y contabilizar tambien las respuestas 429. El endpoint es
 # privado (Caddy lo bloquea al exterior) y hoy no hay scraper: es un enganche
-# listo, de valor inmediato bajo.
-#
-# Limitacion conocida: FastAPI 0.139 anida los routers incluidos como
-# _IncludedRouter, que starlette-exporter 0.23 no sabe resolver, asi que
-# group_paths NO agrupa (p.ej. /v1/events/{id} se veria por URL literal) y
-# filter_unhandled_paths=True descartaria TODAS las series. Por eso va en False:
-# se registran todas las peticiones, a cambio de que un escaner de 404s pueda
-# crear series por path (acotado por los reinicios frecuentes y el mem_limit).
-# group_paths queda en True: es inocuo hoy y se autocorrige cuando la libreria
-# soporte _IncludedRouter. Revisar al desplegar un scraper real.
+# listo, de valor inmediato bajo. group_paths etiqueta por plantilla de ruta
+# (/v1/events/{event_id}) y filter_unhandled_paths descarta las rutas que no
+# existen, asi que un escaner de 404s no puede crear series por URL.
 app.add_middleware(
     PrometheusMiddleware,
     app_name="geohazard",
     group_paths=True,
-    filter_unhandled_paths=False,
+    filter_unhandled_paths=True,
     skip_paths=["/metrics"],
 )
 app.add_route("/metrics", handle_metrics)

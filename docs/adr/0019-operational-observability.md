@@ -127,3 +127,11 @@ Prometheus because metrics-based alerting is disproportionate **for geohazard**,
 not because the host cannot host it. The practical consequence is that the
 `/metrics` endpoint this ADR exposes has no consumer, and the Caddy rule that
 returns 404 for it publicly is the whole of its access policy.
+
+## Amendment (2026-10-16): `/metrics` path grouping works
+
+starlette-exporter 0.24 resolves FastAPI's nested routers, so the known
+limitation above is gone: `group_paths` labels series by route template
+(`/v1/events/{event_id}`) and `filter_unhandled_paths` is now `True`, which
+drops unmatched paths. A 404 scanner can no longer create per-URL series.
+`tests/unit/test_metrics.py` pins both behaviours.
