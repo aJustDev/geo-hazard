@@ -26,17 +26,24 @@ image it runs (ADR-0014).
 
 Secrets (server identity never appears in the repo):
 
-| Secret                     | Content                           |
-| -------------------------- | --------------------------------- |
-| `GEOHAZARD_DEPLOY_SSH_KEY` | private ed25519 key (deploy-only) |
-| `GEOHAZARD_DEPLOY_HOST`    | server address                    |
-| `GEOHAZARD_DEPLOY_PORT`    | sshd port                         |
-| `GEOHAZARD_DEPLOY_USER`    | unix user                         |
+| Secret                     | Content                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `GEOHAZARD_DEPLOY_SSH_KEY` | private ed25519 key (deploy-only)                                                   |
+| `GEOHAZARD_DEPLOY_HOST`    | server address                                                                      |
+| `GEOHAZARD_DEPLOY_PORT`    | sshd port                                                                           |
+| `GEOHAZARD_DEPLOY_USER`    | unix user                                                                           |
+| `AEMET_API_KEY`            | AEMET key for the nightly contract test (optional: without it that test is skipped) |
 
 Repository variable `GEOHAZARD_DEPLOY_ENABLED` is the master switch: the
 deploy job is skipped unless it is `true`. It stays `false` until the DNS
 record and the server provisioning exist, so enabling deploys is an explicit,
 auditable act.
+
+The `Nightly` workflow (daily cron, never deploys: `Deploy` only listens to
+`CI`) runs `pip-audit` against the lock and the contract tests against the
+live EFFIS, IGN and AEMET endpoints. Dependabot opens one grouped PR a month
+for minor/patch updates of uv packages and actions. GitHub disables scheduled
+workflows after 60 days without repository activity.
 
 ## Server layout
 
@@ -80,14 +87,19 @@ statement_timeout"` (expect `30s`).
 
 ### Backups and disaster recovery (ADR-0018)
 
-Backups are LOCAL and tested; offsite is a deferred hook. What is protected: a
-bad migration, DB corruption, and loss of the GeoParquet volume (the only
-irreproducible asset). What is NOT: total loss of the VPS (accepted risk).
+Backups are local AND offsite, and tested. Protected: a bad migration, DB
+corruption, loss of the GeoParquet volume (the only irreproducible asset) and,
+since 2026-08-13, total loss of the host (ADR-0018 amendment).
 
 - **What runs**: [`ops/backup.sh`](../ops/backup.sh) writes a daily `pg_dump`
   (zstd) and a `tar` of the `geohazard_geohazard_data` volume to `BACKUP_DIR`
   (default `/srv/geohazard-backups`, outside the checkout so `git reset --hard`
   never touches it). Retention: 7 daily + 4 weekly.
+- **Offsite**: both daily artifacts are then copied with `rclone` to a
+  Cloudflare R2 bucket under the `geohazard/` prefix, using the host-wide
+  credentials file (`R2_ENV_FILE`, default `/etc/ductual/backup.env`). Without
+  that file the local backup still completes and logs a warning; a failed
+  upload fails the run. Remote retention is the bucket's lifecycle rule.
 - **Install the timer** (as the deploy user, needs sudo for the unit files):
   ```
   sudo install -m 0755 -d /srv/geohazard-backups
@@ -129,25 +141,32 @@ irreproducible asset). What is NOT: total loss of the VPS (accepted risk).
   source's own sync cadence) and a top-level `ok`/`degraded`. It is the trust
   surface for integrators and the data source for the alert below.
 - **Source alert** ([`ops/check-sources.sh`](../ops/check-sources.sh)): a cron
-  polls the endpoint and mails via `exim4` when it is not `ok` (or unreachable).
-  Silent when healthy. Install (every 20 min):
+  polls the endpoint and pushes through the host notifier
+  (`notify-cartagena.sh`: ntfy + Telegram) only when the state CHANGES
+  (degraded, different sources affected, recovered), plus one daily reminder
+  while an episode stays open. Priority is per source (API down 5, aemet/ign
+  4, effis 3). Silent when healthy. Install (every 20 min):
   ```
-  # crontab -e (as the deploy user), set ALERT_MAILTO to a real inbox/alias
-  */20 * * * * ALERT_MAILTO=ops@example.org /opt/geohazard/ops/check-sources.sh
+  # crontab -e (as the deploy user)
+  */20 * * * * /opt/geohazard/ops/check-sources.sh
   ```
-  Known limitation: blind to a full host outage (nothing left to send the mail).
+  A full host outage is covered by the host's external dead-man's switch
+  (healthchecks.io), not by this script.
 - **Structured logs**: the API runs uvicorn with `--log-config log_config.json`
   (baked into the image), emitting JSON with a `request_id` per request. Verify:
   `docker logs geohazard-api | tail -1` should be a JSON line.
-- **`GET /metrics`** (Prometheus) is app-level and PRIVATE. Block it at the edge
-  in the Caddyfile so only a co-located scraper (docker network) can reach it:
-  ```
-  geohazard.ajustino.dev {
-      # ... existing TLS / headers / reverse_proxy ...
-      handle /metrics {
-          respond 404
-      }
-  }
-  ```
-  Reload: `sudo systemctl reload caddy` (or `caddy reload`). Confirm 404 from
-  outside; a scraper on the docker network hits `http://geohazard-api:8000/metrics`.
+- **`GET /metrics`** (Prometheus) is app-level and has no consumer today
+  (ADR-0019 amendment); the edge returns 404 for it publicly.
+
+### Reverse proxy
+
+The Caddy site block is versioned at
+[`deploy/geohazard.caddy`](../deploy/geohazard.caddy): TLS 1.3, security
+headers, no `Server` header, `/metrics` blocked. It is NOT applied by the
+deploy; after changing it, on the server:
+```
+sudo cp /opt/geohazard/deploy/geohazard.caddy /etc/caddy/sites/
+sudo caddy validate --config /etc/caddy/Caddyfile
+sudo systemctl reload caddy
+curl -sI https://geohazard.ajustino.dev/v1/health/liveness   # no Server header
+```
