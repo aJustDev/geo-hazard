@@ -18,13 +18,21 @@ from app.hazards.schemas.sources import SourcesStatusResponse, SourceStatus
 router = APIRouter(prefix="/sources", tags=["Sources"])
 
 
-@router.get("/status", response_model=SourcesStatusResponse)
+# Frescura por fuente: superficie de confianza para integradores y base de la
+# alerta operativa (ADR-0019). Se juzga contra la cadencia propia de cada fuente
+# (scheduled_jobs), no contra un umbral fijo: EFFIS sincroniza cada 4h y un
+# umbral global daria falsos positivos.
+@router.get(
+    "/status",
+    response_model=SourcesStatusResponse,
+    summary="Freshness of each source",
+    description=(
+        "Per-source sync freshness, judged against each source's own cadence, with "
+        "consecutive failures, the attribution each source requires and a top-level "
+        "`ok`/`degraded`. `last_success_at` is the time of the source's last update."
+    ),
+)
 async def sources_status(session: Annotated[AsyncSession, Depends(get_session)]):
-    """Frescura por fuente: superficie de confianza para integradores y base de
-    la alerta operativa (ADR-0019). La frescura se juzga contra la cadencia
-    propia de cada fuente (scheduled_jobs), no contra un umbral fijo: EFFIS
-    sincroniza cada 4h y un umbral global daria falsos positivos.
-    """
     repo = SourceSyncStateRepo(session)
     states = {st.source: st for st in await repo.list_all()}
 

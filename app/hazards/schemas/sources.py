@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Literal
 
+from pydantic import ConfigDict
+
 from app.core.attribution import SourceAttribution
 from app.core.schema import BaseSchema
 
@@ -24,5 +26,33 @@ class SourceStatus(BaseSchema):
 
 
 class SourcesStatusResponse(BaseSchema):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "status": "ok",
+                    "sources": [
+                        {
+                            "source": "aemet",
+                            "last_run_at": "2026-10-16T08:17:05Z",
+                            "last_success_at": "2026-10-16T08:17:05Z",
+                            "seconds_since_success": 1453.6,
+                            "consecutive_failures": 0,
+                            "has_error": False,
+                            "interval_seconds": 1800,
+                            "stale": False,
+                            "healthy": True,
+                            "attribution": {
+                                "source": "aemet",
+                                "text": "Fuente: AEMET",
+                                "url": "https://www.aemet.es/es/nota_legal",
+                            },
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
     status: Literal["ok", "degraded"]
     sources: list[SourceStatus]

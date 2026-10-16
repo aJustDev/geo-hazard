@@ -47,7 +47,43 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await engine.dispose()
 
 
-app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
+_REPO = "https://github.com/aJustDev/geo-hazard"
+
+# Texto publico de /docs: en ingles, como el README y los ADRs.
+_DESCRIPTION = f"""
+Natural-hazard spatial API for the Iberian Peninsula, built on open European
+data: wildfires from Copernicus EFFIS, earthquakes from the Spanish IGN and
+severe-weather warnings from AEMET, normalized into one model with a common
+1-4 severity scale.
+
+- Event endpoints return GeoJSON (RFC 7946) in EPSG:4326, lon/lat order.
+- Public and unauthenticated (open data). Rate limited per IP; the
+  analytics and clustering endpoints have a stricter quota. A `429` or `503`
+  carries `Retry-After`.
+- Errors use one envelope: `{{"detail", "code"}}`.
+- Data attribution: every response carries an `attribution` member with the
+  credit each source requires. Terms per source are in
+  [NOTICE]({_REPO}/blob/main/NOTICE). This project is not affiliated with or
+  endorsed by AEMET, IGN/CNIG or the Copernicus programme.
+- Source freshness: `GET /v1/sources/status`.
+"""
+
+_TAGS = [
+    {"name": "Events", "description": "Hazard events: listing, radius search, clustering."},
+    {"name": "Analytics", "description": "Aggregates over the GeoParquet history (DuckDB)."},
+    {"name": "Sources", "description": "Freshness and attribution of each upstream source."},
+    {"name": "Health", "description": "Liveness and readiness probes."},
+]
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description=_DESCRIPTION,
+    license_info={"name": "MIT", "url": f"{_REPO}/blob/main/LICENSE"},
+    contact={"name": "geo-hazard on GitHub", "url": _REPO},
+    openapi_tags=_TAGS,
+    lifespan=lifespan,
+)
 
 # Rate limiting (ADR-0017). Se anade ANTES que CORS para que este ultimo quede
 # como middleware mas externo y las respuestas 429 tambien lleven cabeceras

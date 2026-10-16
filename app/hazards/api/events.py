@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query, Request, Response
 
 from app.core.rate_limit import EXPENSIVE_LIMIT, limiter
+from app.core.schema import error_responses
 from app.deps.repository import get_repo
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.schemas.clusters import ClusterFeatureCollection
@@ -23,7 +24,18 @@ HazardType = Literal["wildfire", "earthquake", "weather_warning"]
 Source = Literal["effis", "ign", "aemet"]
 
 
-@router.get("", response_model=EventFeatureCollection)
+@router.get(
+    "",
+    response_model=EventFeatureCollection,
+    summary="List hazard events",
+    description=(
+        "Hazard events as a GeoJSON FeatureCollection (RFC 7946), newest first. "
+        "Filters combine with AND. Keyset pagination: pass `nextCursor` back as "
+        "`cursor` to get the next page. `severity` is a common 1-4 scale across "
+        "sources; the raw source values stay in `properties.attrs`."
+    ),
+    responses=error_responses(400, 422),
+)
 async def list_events(
     repo: Annotated[HazardEventRepo, Depends(get_repo(HazardEventRepo))],
     bbox: Annotated[str | None, Query(description="minLon,minLat,maxLon,maxLat (WGS84)")] = None,
@@ -57,7 +69,17 @@ async def list_events(
 # Starlette intentaria parsear "near" como UUID y devolveria 422.
 
 
-@router.get("/near", response_model=NearEventFeatureCollection)
+@router.get(
+    "/near",
+    response_model=NearEventFeatureCollection,
+    summary="Events near a point",
+    description=(
+        "Events within `radius_m` meters of (`lon`, `lat`), nearest first, each "
+        "with `distance_m` (to the edge for polygons). Not paginated: returns the "
+        "`limit` nearest."
+    ),
+    responses=error_responses(422),
+)
 async def near_events(
     repo: Annotated[HazardEventRepo, Depends(get_repo(HazardEventRepo))],
     lon: Annotated[float, Query(ge=-180, le=180)],
@@ -89,7 +111,18 @@ async def near_events(
     )
 
 
-@router.get("/clusters", response_model=ClusterFeatureCollection)
+@router.get(
+    "/clusters",
+    response_model=ClusterFeatureCollection,
+    summary="Spatial clusters (DBSCAN)",
+    description=(
+        "Groups events lying within `eps_m` meters of each other (DBSCAN with "
+        "`min_points`); each feature is the metric centroid of one cluster. "
+        "Requires `bbox` or `starts_after` to bound the computation and returns at "
+        "most 500 clusters. Stricter rate limit than the rest of the API."
+    ),
+    responses=error_responses(400, 422),
+)
 @limiter.limit(EXPENSIVE_LIMIT)
 async def cluster_events(
     request: Request,
@@ -129,7 +162,13 @@ async def cluster_events(
     )
 
 
-@router.get("/{event_id}", response_model=EventFeature)
+@router.get(
+    "/{event_id}",
+    response_model=EventFeature,
+    summary="Get one event",
+    description="A single hazard event as a GeoJSON Feature.",
+    responses=error_responses(404, 422),
+)
 async def get_event(
     event_id: uuid.UUID,
     repo: Annotated[HazardEventRepo, Depends(get_repo(HazardEventRepo))],
