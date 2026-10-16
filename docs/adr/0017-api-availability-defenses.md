@@ -35,9 +35,10 @@ not depend on server configuration we cannot review:
    the repo, is testable, and the host's Caddy is a distro package without the
    rate-limit plugin. A generous global default (120/min) protects everything;
    a stricter limit (20/min) guards the compute endpoints (`/clusters`,
-   `/analytics/*`) via a decorator. The client IP comes from `X-Forwarded-For`
-   (Caddy is the only ingress; the app binds to 127.0.0.1, so trusting that
-   header is safe). Over-limit responses use the homogeneous `{detail, code}`
+   `/analytics/*`) via a decorator. The client IP is the last value of
+   `X-Forwarded-For`, the one added by the trusted proxy (Caddy is the only
+   ingress; the app binds to 127.0.0.1, so trusting that header is safe; any
+   earlier values are client-controlled). Over-limit responses use the homogeneous `{detail, code}`
    envelope with `Retry-After`. Counters live in memory (single instance) and
    reset on redeploy - acceptable for this scale.
 

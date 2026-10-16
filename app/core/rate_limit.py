@@ -18,11 +18,13 @@ from app.core.config import settings
 
 def _client_ip(request: Request) -> str:
     # Detras de Caddy (unico ingress; la app solo escucha en 127.0.0.1) la IP
-    # real del cliente viaja en X-Forwarded-For y su primer salto es el cliente;
-    # confiar en ese header es seguro porque nada mas puede alcanzar la app.
+    # real del cliente viaja en X-Forwarded-For. Se toma el ULTIMO valor, el que
+    # anade el proxy de confianza: los anteriores los controla el cliente. Hoy
+    # Caddy sobrescribe el XFF entrante y manda un solo valor, pero el ultimo
+    # salto sigue siendo correcto si algun dia la cadena de proxies lo anade.
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        return forwarded.rsplit(",", 1)[-1].strip()
     return get_remote_address(request)
 
 
