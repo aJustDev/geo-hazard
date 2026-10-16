@@ -89,16 +89,13 @@ async def test_worker_lifecycle_procesa_en_segundo_plano(
     committing_factory: async_sessionmaker,
     monkeypatch: pytest.MonkeyPatch,
     isolated_dispatcher: None,
-    pg_url: str,
 ) -> None:
-    """Ciclo de vida real: start() -> LISTEN + poll -> dispatch -> stop().
+    """Ciclo de vida real: start() -> poll -> dispatch -> stop().
 
-    Ejercita el bucle _run completo (conexion asyncpg, heartbeat, espera con
-    timeout y limpieza del listener al parar), que el resto de tests puentea
-    llamando a _process_batch directamente.
+    Ejercita el bucle _run completo (poll con espera interrumpible al parar),
+    que el resto de tests puentea llamando a _process_batch directamente.
     """
     monkeypatch.setattr(worker_module, "async_session_factory", committing_factory)
-    monkeypatch.setattr(worker_module, "_build_asyncpg_dsn", lambda: pg_url.replace("+asyncpg", ""))
     monkeypatch.setattr(worker_module.settings, "OUTBOX_POLL_INTERVAL_SECONDS", 0.05)
 
     received: list[dict] = []

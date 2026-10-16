@@ -38,3 +38,19 @@ Run both concerns on PostgreSQL itself, following the pattern published in
 - Throughput ceiling is a non-issue at this scale, but the pattern is not the
   right call for high-volume fan-out; that trade-off is documented upstream in
   apsis' ADRs.
+
+## Amendment (2026-10-16): the outbox worker is poll-only
+
+The LISTEN/NOTIFY "wake-up optimization" never woke anything: the callback
+only logged, and the loop waited on the shutdown event alone. It cost a raw
+asyncpg connection per worker, a heartbeat, and a `pg_notify` per publish. It
+is removed; the outbox worker now polls every `OUTBOX_POLL_INTERVAL_SECONDS`
+(5 s) and backs off exponentially (capped at 60 s) while the database errors.
+
+Why not wire it instead: the only consumer today is the snapshot export, and
+end-to-end latency is set by the sources' sync cadence (IGN 15 min, AEMET 30
+min, EFFIS 4 h), not by the poll. Even a future push consumer (webhooks) would
+gain under 1% from it. If latency ever matters, lowering the poll interval is
+the cheap lever (one indexed `SKIP LOCKED` select on a small table); wiring
+NOTIFY back means a listener that sets an `asyncio.Event` the loop waits on,
+recoverable from this commit's parent.

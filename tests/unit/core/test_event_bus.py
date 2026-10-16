@@ -1,10 +1,10 @@
 from unittest.mock import AsyncMock, MagicMock
 
-from app.core.events.bus import CHANNEL, EventBus
+from app.core.events.bus import EventBus
 from app.core.events.models import OutboxEventORM
 
 
-async def test_publish_inserta_sin_commit_y_notifica() -> None:
+async def test_publish_inserta_sin_commit() -> None:
     session = AsyncMock()
     session.add = MagicMock()
 
@@ -16,8 +16,5 @@ async def test_publish_inserta_sin_commit_y_notifica() -> None:
     assert added.payload == {"k": 1}
     session.flush.assert_awaited_once()
     session.commit.assert_not_awaited()
-
-    # El NOTIFY es solo wake-up: viaja por la misma transaccion.
-    notify_params = session.execute.call_args.args[1]
-    assert notify_params["channel"] == CHANNEL
+    session.execute.assert_not_awaited()
     assert event is added

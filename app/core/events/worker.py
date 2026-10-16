@@ -4,7 +4,6 @@ import logging
 import random
 from datetime import UTC, datetime, timedelta
 
-import asyncpg
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
@@ -16,18 +15,9 @@ from app.core.events.models import OutboxEventORM
 
 logger = logging.getLogger(__name__)
 
-CHANNEL = "geohazard_outbox_channel"
 BATCH_SIZE = 50
 MAX_BACKOFF_HOURS = 1
-MAX_RECONNECT_DELAY = 60
-
-
-def _build_asyncpg_dsn() -> str:
-    """DSN plano (sin +asyncpg) para la conexion raw que hace LISTEN."""
-    return (
-        f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}"
-        f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-    )
+MAX_ERROR_BACKOFF_SECONDS = 60
 
 
 class OutboxWorker:
@@ -48,61 +38,30 @@ class OutboxWorker:
                 await self._task
         logger.info("Outbox worker stopped")
 
-    # Main loop
+    # Main loop: poll puro (ADR-0002, enmienda 2026-10-16). La latencia que
+    # manda es la cadencia de sync de las fuentes, no el intervalo de poll.
 
     async def _run(self) -> None:
-        reconnect_attempt = 0
-
+        consecutive_errors = 0
         while not self._shutdown_event.is_set():
-            conn: asyncpg.Connection | None = None
+            delay = settings.OUTBOX_POLL_INTERVAL_SECONDS
             try:
-                conn = await asyncpg.connect(_build_asyncpg_dsn())
-                await conn.add_listener(CHANNEL, self._on_notify)
-                reconnect_attempt = 0
-
-                while not self._shutdown_event.is_set():
-                    # Espera NOTIFY o timeout de poll. El poll es la fuente de
-                    # verdad: _on_notify solo despierta antes (ver nota abajo).
-                    try:
-                        await asyncio.wait_for(
-                            self._shutdown_event.wait(),
-                            timeout=settings.OUTBOX_POLL_INTERVAL_SECONDS,
-                        )
-                        break
-                    except TimeoutError:
-                        pass
-
-                    try:
-                        await conn.execute("SELECT 1")
-                    except Exception:
-                        logger.warning("Heartbeat failed, reconnecting...")
-                        break
-
-                    await self._process_batch()
-
+                await self._process_batch()
+                consecutive_errors = 0
             except asyncio.CancelledError:
                 raise
             except Exception:
-                reconnect_attempt += 1
-                delay = min(2**reconnect_attempt, MAX_RECONNECT_DELAY)
-                logger.exception("Outbox worker connection error, retrying in %ds", delay)
-                await asyncio.sleep(delay)
-            finally:
-                if conn and not conn.is_closed():
-                    with contextlib.suppress(Exception):
-                        await conn.remove_listener(CHANNEL, self._on_notify)
-                    await conn.close()
+                # BD caida: backoff exponencial para no escribir una traza
+                # por tick mientras dure la caida.
+                consecutive_errors += 1
+                delay = max(delay, min(2**consecutive_errors, MAX_ERROR_BACKOFF_SECONDS))
+                logger.exception("Outbox worker error, retrying in %.0fs", delay)
 
-    def _on_notify(
-        self,
-        connection: asyncpg.Connection,
-        pid: int,
-        channel: str,
-        payload: str,
-    ) -> None:
-        # Solo loguea: el procesado lo dispara el poll. La correccion no
-        # depende del NOTIFY (un notify perdido no pierde el evento).
-        logger.debug("Received NOTIFY on %s: %s", channel, payload)
+            try:
+                await asyncio.wait_for(self._shutdown_event.wait(), timeout=delay)
+                break
+            except TimeoutError:
+                pass
 
     # Batch processing
 
