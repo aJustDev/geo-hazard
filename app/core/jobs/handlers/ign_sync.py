@@ -9,7 +9,7 @@ import logging
 
 from app.core.db import async_session_factory
 from app.core.events.bus import EventBus
-from app.core.ign.exceptions import IgnTransientError
+from app.core.ign.exceptions import IgnError, IgnTransientError
 from app.core.ign.registry import ign_client_registry
 from app.core.jobs.registry import job_registry
 from app.hazards.repos.hazard_event import HazardEventRepo
@@ -30,14 +30,18 @@ async def ign_sync() -> None:
         )
         try:
             await use_case.execute(client=client)
-        except IgnTransientError as exc:
-            # Fuente caida: no es fallo del job. Se descarta la transaccion
-            # del lote pero el fallo queda contabilizado en su propia sesion
-            # (sobrevive al rollback) para poder alertar por rachas.
+        except IgnError as exc:
+            # Se descarta la transaccion del lote pero el fallo queda
+            # contabilizado en su propia sesion (sobrevive al rollback) para
+            # que /sources/status y la alerta lo vean por rachas (ADR-0019).
             await session.rollback()
-            logger.warning("ign sync skipped, source unavailable: %s", exc)
             async with async_session_factory() as bookkeeping:
                 await SourceSyncStateRepo(bookkeeping).record_failure(SOURCE, str(exc))
                 await bookkeeping.commit()
+            if not isinstance(exc, IgnTransientError):
+                # Contrato roto: si es fallo del job (scheduled_jobs.last_error).
+                raise
+            # Fuente caida: no es fallo del job.
+            logger.warning("ign sync skipped, source unavailable: %s", exc)
             return
         await session.commit()

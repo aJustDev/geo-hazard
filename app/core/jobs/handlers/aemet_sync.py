@@ -7,7 +7,7 @@ cuota para re-servir contenido identico que el content_hash descartaria.
 
 import logging
 
-from app.core.aemet.exceptions import AemetTransientError
+from app.core.aemet.exceptions import AemetError, AemetTransientError
 from app.core.aemet.registry import aemet_client_registry
 from app.core.db import async_session_factory
 from app.core.events.bus import EventBus
@@ -30,14 +30,18 @@ async def aemet_sync() -> None:
         )
         try:
             await use_case.execute(client=client)
-        except AemetTransientError as exc:
-            # Fuente caida o cuota agotada: no es fallo del job. Se descarta
-            # la transaccion del lote pero el fallo queda contabilizado en su
-            # propia sesion (sobrevive al rollback) para alertar por rachas.
+        except AemetError as exc:
+            # Se descarta la transaccion del lote pero el fallo queda
+            # contabilizado en su propia sesion (sobrevive al rollback) para
+            # que /sources/status y la alerta lo vean por rachas (ADR-0019).
             await session.rollback()
-            logger.warning("aemet sync skipped, source unavailable: %s", exc)
             async with async_session_factory() as bookkeeping:
                 await SourceSyncStateRepo(bookkeeping).record_failure(SOURCE, str(exc))
                 await bookkeeping.commit()
+            if not isinstance(exc, AemetTransientError):
+                # Contrato roto: si es fallo del job (scheduled_jobs.last_error).
+                raise
+            # Fuente caida o cuota agotada: no es fallo del job.
+            logger.warning("aemet sync skipped, source unavailable: %s", exc)
             return
         await session.commit()

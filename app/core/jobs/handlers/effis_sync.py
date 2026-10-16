@@ -8,7 +8,7 @@ contenido identico que el content_hash descartaria igualmente.
 import logging
 
 from app.core.db import async_session_factory
-from app.core.effis.exceptions import EffisTransientError
+from app.core.effis.exceptions import EffisError, EffisTransientError
 from app.core.effis.registry import effis_client_registry
 from app.core.events.bus import EventBus
 from app.core.jobs.registry import job_registry
@@ -30,14 +30,18 @@ async def effis_sync() -> None:
         )
         try:
             await use_case.execute(client=client)
-        except EffisTransientError as exc:
-            # Fuente caida: no es fallo del job. Se descarta la transaccion
-            # del lote pero el fallo queda contabilizado en su propia sesion
-            # (sobrevive al rollback) para poder alertar por rachas.
+        except EffisError as exc:
+            # Se descarta la transaccion del lote pero el fallo queda
+            # contabilizado en su propia sesion (sobrevive al rollback) para
+            # que /sources/status y la alerta lo vean por rachas (ADR-0019).
             await session.rollback()
-            logger.warning("effis sync skipped, source unavailable: %s", exc)
             async with async_session_factory() as bookkeeping:
                 await SourceSyncStateRepo(bookkeeping).record_failure(SOURCE, str(exc))
                 await bookkeeping.commit()
+            if not isinstance(exc, EffisTransientError):
+                # Contrato roto: si es fallo del job (scheduled_jobs.last_error).
+                raise
+            # Fuente caida: no es fallo del job.
+            logger.warning("effis sync skipped, source unavailable: %s", exc)
             return
         await session.commit()
