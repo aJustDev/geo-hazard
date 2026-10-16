@@ -79,6 +79,8 @@ async def test_ambos_planos_responden_el_mismo_dato(
     assert body["rows"][0]["province"] == "Badajoz"
     assert body["rows"][0]["month"] == 7
     assert body["rows"][0]["events"] == 1
+    # Dato EFFIS agregado por provincias CNIG: ambas atribuciones.
+    assert [a["source"] for a in body["attribution"]] == ["cnig", "effis"]
 
 
 async def test_sin_snapshot_el_plano_analitico_responde_vacio(
@@ -89,7 +91,10 @@ async def test_sin_snapshot_el_plano_analitico_responde_vacio(
     response = await client.get("/v1/analytics/earthquakes/frequency", params={"year": 2026})
 
     assert response.status_code == 200
-    assert response.json() == {"year": 2026, "min_magnitude": None, "rows": []}
+    body = response.json()
+    assert body["rows"] == []
+    assert body["min_magnitude"] is None
+    assert [a["source"] for a in body["attribution"]] == ["ign"]
 
 
 async def test_parametros_invalidos_422(

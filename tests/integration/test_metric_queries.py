@@ -98,6 +98,7 @@ async def test_near_ordena_por_distancia(seeded_client: httpx.AsyncClient) -> No
     assert distances[0] < 1  # el centro es exactamente near-m0
     assert all(d <= 10_000 for d in distances)
     assert body["features"][0]["properties"]["external_id"] == "near-m0"
+    assert [a["source"] for a in body["attribution"]] == ["effis", "ign"]
 
 
 async def test_near_distancia_verificable(seeded_client: httpx.AsyncClient) -> None:
@@ -142,6 +143,8 @@ async def test_clusters_agrupa_y_excluye_ruido(seeded_client: httpx.AsyncClient)
     lon, lat = cluster["geometry"]["coordinates"]
     assert abs(lon - (-3.7166)) < 0.02
     assert abs(lat - 40.4333) < 0.02
+    # Sin filtro de fuente, un cluster puede mezclar cualquiera de las tres.
+    assert [a["source"] for a in body["attribution"]] == ["aemet", "effis", "ign"]
 
 
 async def test_clusters_sin_filtro_de_tipo_absorbe_al_sismo(

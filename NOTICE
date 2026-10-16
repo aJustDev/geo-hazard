@@ -1,0 +1,50 @@
+geo-hazard
+Copyright (c) 2026 Adrian Justino Maestre
+
+The source code is licensed under the MIT License (see LICENSE). The data the
+API serves is NOT the project's: it is derived from the third-party sources
+below, each under its own terms. geo-hazard normalizes that data (common
+severity scale, canonical GeoJSON geometry, event lifecycle), so every source
+is credited with its formula for modified data or derived works.
+
+geo-hazard is an independent open-source project. It is not affiliated with,
+sponsored or endorsed by AEMET, the Instituto Geografico Nacional (IGN/CNIG),
+the European Commission or the Copernicus programme.
+
+The API carries these credits itself: every GeoJSON FeatureCollection and
+analytics response includes an `attribution` member for the sources it
+contains, and GET /v1/sources/status gives each source's attribution and the
+time of its last successful update.
+
+
+1. Severe-weather warnings: AEMET OpenData
+
+   Terms:  https://www.aemet.es/es/nota_legal
+   Reuse:  commercial and non-commercial reuse allowed.
+   Credit: for modified data, name AEMET as the owner with "Fuente: AEMET",
+           and state the date of the last update.
+   How:    "Fuente: AEMET" in the `attribution` member; the last update is
+           `last_success_at` in /v1/sources/status. The AEMET technical
+           content (phenomenon, level, validity window, zone) is kept as
+           published, in `properties.attrs`.
+
+2. Wildfires: EFFIS, Copernicus Emergency Management Service
+
+   Terms:  https://forest-fire.emergency.copernicus.eu/about-effis/data-license
+   Reuse:  EU-owned content under CC BY 4.0; credit must be given and changes
+           indicated.
+   Credit: "Contains modified Copernicus Emergency Management Service
+           information (EFFIS). (c) European Union, CC BY 4.0"
+
+3. Earthquakes: Instituto Geografico Nacional (IGN)
+
+   Terms:  https://www.ign.es/resources/licencia/Condiciones_licenciaUso_IGN.pdf
+   Reuse:  CC BY 4.0.
+   Credit: "Obra derivada del catalogo de terremotos del IGN, CC-BY 4.0 ign.es"
+
+4. Provincial boundaries: CNIG (data/reference/provinces_es.parquet)
+
+   Terms:  https://www.ign.es/resources/licencia/Condiciones_licenciaUso_IGN.pdf
+   Reuse:  CC BY 4.0. Simplified from the CNIG "lineas limite" (ADR-0013) and
+           used only to aggregate analytics by province.
+   Credit: "Obra derivada de las lineas limite del CNIG, CC-BY 4.0 ign.es"

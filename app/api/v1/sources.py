@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.attribution import ATTRIBUTIONS
 from app.core.config import settings
 from app.core.db import get_session
 from app.core.jobs.models import ScheduledJobORM
@@ -60,6 +61,7 @@ async def sources_status(session: Annotated[AsyncSession, Depends(get_session)])
                 interval_seconds=interval,
                 stale=stale,
                 healthy=healthy,
+                attribution=ATTRIBUTIONS.get(source),
             )
         )
 

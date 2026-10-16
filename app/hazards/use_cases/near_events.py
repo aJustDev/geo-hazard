@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.core.attribution import attributions_for
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.schemas.events import (
     EventProperties,
@@ -60,7 +61,11 @@ class NearEventsUseCase:
             )
             for event, distance in pairs
         ]
-        return NearEventFeatureCollection(features=features, numberReturned=len(features))
+        return NearEventFeatureCollection(
+            features=features,
+            numberReturned=len(features),
+            attribution=attributions_for(f.properties.source for f in features),
+        )
 
 
 __all__ = ["NearEventsUseCase"]

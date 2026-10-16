@@ -2,6 +2,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.core.attribution import attributions_for
 from app.core.exceptions.exceptions import BusinessValidationError, NotFoundError
 from app.hazards.models.hazard_event import HazardEventORM
 from app.hazards.repos.hazard_event import HazardEventRepo
@@ -64,6 +65,7 @@ class ListEventsUseCase:
             features=features,
             numberReturned=len(features),
             nextCursor=next_cursor,
+            attribution=attributions_for(f.properties.source for f in features),
         )
 
     @staticmethod

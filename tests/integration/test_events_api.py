@@ -79,6 +79,8 @@ async def test_bbox_peninsular_excluye_canarias(seeded_client: httpx.AsyncClient
     assert ids == {"api-test-0", "api-test-1", "api-test-2"}
     # Geometria GeoJSON con ejes lon, lat.
     assert body["features"][0]["geometry"]["type"] == "Point"
+    # Atribucion (foreign member): solo las fuentes presentes en la pagina.
+    assert [a["source"] for a in body["attribution"]] == ["effis"]
 
 
 async def test_paginacion_keyset_recorre_todo_sin_duplicados(

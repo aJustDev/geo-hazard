@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
+from app.core.attribution import SourceAttribution
 from app.core.schema import BaseSchema
 
 
@@ -18,6 +19,8 @@ class SourceStatus(BaseSchema):
     stale: bool
     # healthy: ni stale ni con demasiados fallos consecutivos.
     healthy: bool
+    # Atribucion exigida por la fuente; None si aun no tiene entrada.
+    attribution: SourceAttribution | None
 
 
 class SourcesStatusResponse(BaseSchema):

@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from app.core.attribution import attributions_for
 from app.core.exceptions.exceptions import BusinessValidationError
+from app.hazards.models.hazard_event import SOURCES
 from app.hazards.repos.hazard_event import HazardEventRepo
 from app.hazards.schemas.clusters import (
     ClusterFeature,
@@ -65,7 +67,11 @@ class ClusterEventsUseCase:
             )
             for row in rows
         ]
-        return ClusterFeatureCollection(features=features, numberReturned=len(features))
+        return ClusterFeatureCollection(
+            features=features,
+            numberReturned=len(features),
+            attribution=attributions_for([source] if source else SOURCES),
+        )
 
 
 __all__ = ["ClusterEventsUseCase"]

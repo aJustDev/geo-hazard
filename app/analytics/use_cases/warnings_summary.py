@@ -4,6 +4,9 @@ from app.analytics.concurrency import run_analytics
 from app.analytics.paths import source_snapshot
 from app.analytics.queries.warnings import summary_by_phenomenon
 from app.analytics.schemas.warnings import WarningsSummaryResponse, WarningsSummaryRow
+from app.core.attribution import attributions_for
+
+_ATTRIBUTION = attributions_for(["aemet"])
 
 
 @dataclass(slots=True)
@@ -13,14 +16,16 @@ class WarningsSummaryUseCase:
     async def execute(self, *, year: int, phenomenon_code: str | None) -> WarningsSummaryResponse:
         snapshot = source_snapshot("aemet")
         if not snapshot.exists():
-            return WarningsSummaryResponse(year=year, rows=[])
+            return WarningsSummaryResponse(year=year, rows=[], attribution=_ATTRIBUTION)
         rows = await run_analytics(
             summary_by_phenomenon,
             snapshot=str(snapshot),
             year=year,
             phenomenon_code=phenomenon_code,
         )
-        return WarningsSummaryResponse(year=year, rows=[WarningsSummaryRow(**row) for row in rows])
+        return WarningsSummaryResponse(
+            year=year, rows=[WarningsSummaryRow(**row) for row in rows], attribution=_ATTRIBUTION
+        )
 
 
 __all__ = ["WarningsSummaryUseCase"]

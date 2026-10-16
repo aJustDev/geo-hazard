@@ -4,6 +4,10 @@ from app.analytics.concurrency import run_analytics
 from app.analytics.paths import PROVINCES_PARQUET, source_snapshot
 from app.analytics.queries.wildfires import burned_area_by_month
 from app.analytics.schemas.wildfires import BurnedAreaResponse, BurnedAreaRow
+from app.core.attribution import attributions_for
+
+# Dato EFFIS agregado sobre los limites provinciales del CNIG.
+_ATTRIBUTION = attributions_for(["effis", "cnig"])
 
 
 @dataclass(slots=True)
@@ -17,7 +21,7 @@ class BurnedAreaUseCase:
     async def execute(self, *, year: int, province_code: str | None) -> BurnedAreaResponse:
         snapshot = source_snapshot("effis")
         if not snapshot.exists():
-            return BurnedAreaResponse(year=year, rows=[])
+            return BurnedAreaResponse(year=year, rows=[], attribution=_ATTRIBUTION)
         rows = await run_analytics(
             burned_area_by_month,
             snapshot=str(snapshot),
@@ -25,7 +29,9 @@ class BurnedAreaUseCase:
             year=year,
             province_code=province_code,
         )
-        return BurnedAreaResponse(year=year, rows=[BurnedAreaRow(**row) for row in rows])
+        return BurnedAreaResponse(
+            year=year, rows=[BurnedAreaRow(**row) for row in rows], attribution=_ATTRIBUTION
+        )
 
 
 __all__ = ["BurnedAreaUseCase"]

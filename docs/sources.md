@@ -3,6 +3,12 @@
 Facts captured against the live services on 2026-07-02. Fixtures under
 `tests/fixtures/` are real responses (trimmed where noted).
 
+Reuse terms and the attribution each source requires are in
+[NOTICE](../NOTICE); the API returns the same credits in an `attribution`
+member (`app/core/attribution.py`). A nightly contract test
+(`tests/contract/`) checks that the live formats still match what is
+described here.
+
 ## EFFIS (wildfires)
 
 - Base URL (OGC WMS/WFS): `https://maps.effis.emergency.copernicus.eu/gwis`

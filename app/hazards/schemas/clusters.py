@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
+from app.core.attribution import SourceAttribution
 from app.core.schema import BaseSchema
 
 
@@ -25,6 +26,9 @@ class ClusterFeatureCollection(BaseSchema):
     type: Literal["FeatureCollection"] = "FeatureCollection"
     features: list[ClusterFeature]
     numberReturned: int  # noqa: N815
+    # Un cluster no expone sus fuentes: se atribuyen las del filtro `source`,
+    # o todas si no hay filtro.
+    attribution: list[SourceAttribution]
 
 
 __all__ = ["ClusterFeature", "ClusterFeatureCollection", "ClusterProperties"]

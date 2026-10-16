@@ -93,12 +93,16 @@ async def test_status_mezcla_degraded(
     assert by["aemet"]["consecutive_failures"] == 3
     assert by["aemet"]["has_error"] is True
 
+    assert by["aemet"]["attribution"]["text"] == "Fuente: AEMET"
+
     never = by["meteoalarm"]
     assert never["last_run_at"] is None
     assert never["last_success_at"] is None
     assert never["seconds_since_success"] is None
     assert never["stale"] is True
     assert never["healthy"] is False
+    # Fuente sin atribucion registrada (aun no implementada): null.
+    assert never["attribution"] is None
 
 
 async def test_status_ok_cuando_todo_sano(

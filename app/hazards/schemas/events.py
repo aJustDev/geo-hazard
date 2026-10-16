@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
+from app.core.attribution import SourceAttribution
 from app.core.schema import BaseSchema
 
 
@@ -33,6 +34,9 @@ class EventFeatureCollection(BaseSchema):
     # camelCase intencionado: son foreign members del GeoJSON, no campos Python.
     numberReturned: int  # noqa: N815
     nextCursor: str | None = None  # noqa: N815
+    # Atribucion de las fuentes presentes: foreign member (RFC 7946 6.1) que
+    # exigen sus licencias al redistribuir dato elaborado (NOTICE).
+    attribution: list[SourceAttribution]
 
 
 class NearEventProperties(EventProperties):
@@ -54,6 +58,9 @@ class NearEventFeatureCollection(BaseSchema):
     type: Literal["FeatureCollection"] = "FeatureCollection"
     features: list[NearEventFeature]
     numberReturned: int  # noqa: N815
+    # Atribucion de las fuentes presentes: foreign member (RFC 7946 6.1) que
+    # exigen sus licencias al redistribuir dato elaborado (NOTICE).
+    attribution: list[SourceAttribution]
 
 
 __all__ = [
