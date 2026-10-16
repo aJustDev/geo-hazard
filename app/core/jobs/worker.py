@@ -142,12 +142,17 @@ class JobWorker:
                 logger.exception("Job '%s' failed (PID=%d)", job_name, os.getpid())
 
         # Fase 3: reprograma. Incremento atomico de run_count en SQL para
-        # evitar lost-update si dos workers tocaran la misma fila.
+        # evitar lost-update si dos workers tocaran la misma fila. claimed_by
+        # es el token de fencing: si el lease expiro durante el handler y otro
+        # worker reclamo la fila, este reschedule no la toca. Hoy no deberia
+        # pasar (JOB_LEASE_SECONDS >= 2 * JOB_HANDLER_TIMEOUT_SECONDS), pero
+        # la guarda no depende de esa invariante.
         async with async_session_factory() as session:
             now = datetime.now(UTC)
             reschedule_stmt = (
                 update(ScheduledJobORM)
                 .where(ScheduledJobORM.id == job_id)
+                .where(ScheduledJobORM.claimed_by == self._worker_id)
                 .values(
                     status="PENDING",
                     claimed_by=None,
@@ -159,5 +164,7 @@ class JobWorker:
                     updated_at=now,
                 )
             )
-            await session.execute(reschedule_stmt)
+            result = await session.execute(reschedule_stmt)
             await session.commit()
+            if result.rowcount == 0:  # type: ignore[attr-defined]
+                logger.warning("Job '%s' lost its lease; left to its new owner", job_name)

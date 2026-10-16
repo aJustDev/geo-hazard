@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.core.jobs import worker as worker_module
@@ -184,3 +184,39 @@ async def test_handler_que_falla_reprograma_y_conserva_el_error(
     assert row.last_error is not None
     # last_error guarda la cola del traceback (500 chars): el mensaje esta.
     assert "kaboom simulado" in row.last_error
+
+
+async def test_lease_perdido_no_reprograma_la_fila_de_otro_worker(
+    committing_factory: async_sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_registry: None,
+) -> None:
+    # Simula un lease expirado durante el handler: la recuperacion de stale
+    # jobs devuelve la fila y otro worker la claima. El reschedule del worker
+    # original no debe pisar el claim del nuevo dueno (token de fencing).
+    monkeypatch.setattr(worker_module, "async_session_factory", committing_factory)
+
+    async def handler() -> None:
+        async with committing_factory() as session:
+            await session.execute(
+                update(ScheduledJobORM)
+                .where(ScheduledJobORM.job_name == "test.fencing")
+                .values(claimed_by="otro-worker")
+            )
+            await session.commit()
+
+    job_registry._jobs["test.fencing"] = handler
+    await _seed_job(
+        committing_factory,
+        job_name="test.fencing",
+        interval_seconds=60,
+        status="PENDING",
+        next_run_at=datetime.now(UTC) - timedelta(seconds=1),
+    )
+
+    await JobWorker()._process_due_jobs()
+
+    row = await _fetch(committing_factory, "test.fencing")
+    assert row.status == "RUNNING"
+    assert row.claimed_by == "otro-worker"
+    assert row.run_count == 0
