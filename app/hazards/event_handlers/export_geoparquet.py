@@ -2,7 +2,7 @@
 
 Este es el nacimiento del plano analitico (ADR-0007): EFFIS y AEMET son
 ventanas rodantes, asi que cada lote con cambios reescribe el snapshot
-completo de su fuente. La escritura es atomica (fichero .tmp + os.replace) e
+completo de su fuente. La escritura es atomica (temporal unico + os.replace) e
 idempotente: reintentar el evento produce el mismo resultado.
 """
 
@@ -10,6 +10,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import duckdb
 import pyarrow as pa
@@ -55,7 +56,10 @@ def _write_snapshot(rows: list[dict[str, Any]], path: Path) -> None:
     # parquet entre lotes (p.ej. ends_at todo NULL) y romperia a los lectores.
     table = pa.Table.from_pylist(rows, schema=_SCHEMA)
 
-    tmp = path.with_name(path.name + ".tmp")
+    # Temporal unico por escritura: el handler corre en un hilo que wait_for no
+    # puede cancelar, asi que tras un timeout el reintento puede solaparse con
+    # la escritura anterior de la misma fuente.
+    tmp = path.with_name(f"{path.name}.{uuid4().hex}.tmp")
     con = duckdb.connect()
     try:
         con.execute("INSTALL spatial; LOAD spatial")
@@ -67,9 +71,10 @@ def _write_snapshot(rows: list[dict[str, Any]], path: Path) -> None:
             "ORDER BY starts_at) TO ? (FORMAT PARQUET)",
             [str(tmp)],
         )
+        os.replace(tmp, path)
     finally:
         con.close()
-    os.replace(tmp, path)
+        tmp.unlink(missing_ok=True)
 
 
 __all__ = ["export_geoparquet"]
