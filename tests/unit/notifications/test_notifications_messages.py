@@ -12,7 +12,7 @@ from app.notifications.services.messages import (
 )
 from app.notifications.services.texts import NOTICE, phenomenon_name, when, zone_for
 
-BASE = "https://geohazard.ajustino.dev"
+BASE = "https://alertas.ajustino.dev"
 EVENT_ID = "6f1c0d4e-0000-4000-8000-000000000001"
 
 
@@ -129,7 +129,7 @@ def test_ntfy_de_una_entrega_lleva_titulo_enlace_y_prioridad() -> None:
     assert message.title == "Aviso naranja por tormentas - Murcia"
     assert message.priority == 4
     assert message.tags == ("warning",)
-    assert message.click == f"{BASE}/v1/events/{EVENT_ID}"
+    assert message.click == f"{BASE}/e/{EVENT_ID}"
     assert NOTICE in message.body
     assert "Fuente: AEMET" in message.body
     assert "IGN" not in message.body  # solo la atribucion de lo que aparece

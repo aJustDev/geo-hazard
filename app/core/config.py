@@ -91,8 +91,9 @@ class Settings(BaseSettings):
     # es el total de cada envio, no por fase.
     NOTIFICATIONS_DRIVER: str = "fake"
     NOTIFICATIONS_HTTP_TIMEOUT_SECONDS: float = 10.0
-    # Base de los enlaces de los mensajes (/v1/events/{id}).
-    NOTIFICATIONS_PUBLIC_BASE_URL: str = "https://geohazard.ajustino.dev"
+    # Base de los enlaces de los mensajes: la ficha del evento en el front
+    # (<base>/e/{id}, ADR-0022).
+    NOTIFICATIONS_PUBLIC_BASE_URL: str = "https://alertas.ajustino.dev"
     # Entrega (job notifications_deliver): intervalo minimo entre mensajes de
     # una suscripcion (lo que llega mientras tanto sale agrupado), lineas por
     # mensaje antes de "y N mas", presupuesto de tiempo por ejecucion (el

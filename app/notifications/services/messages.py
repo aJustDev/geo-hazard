@@ -123,7 +123,7 @@ def render_ntfy(
 
     click = None
     if len(deliveries) == 1 and deliveries[0].item_count == 1 and deliveries[0].items:
-        click = f"{base_url.rstrip('/')}/v1/events/{deliveries[0].items[0].get('id')}"
+        click = f"{base_url.rstrip('/')}/e/{deliveries[0].items[0].get('id')}"
 
     hazards = {_props(i).get("hazard_type") for d in deliveries for i in d.items}
     return NtfyMessage(

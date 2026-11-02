@@ -184,8 +184,9 @@ Channels:
 - **ntfy**: JSON publish to the server root (`topic`, `title`, `message`,
   `priority`, `tags`, `click`), which keeps the topic out of URLs and UTF-8
   out of headers. Priority from severity (1 -> 2, 2 -> 3, 3 -> 4, 4 -> 5),
-  body capped at ntfy's 4,096 bytes, click URL to the event
-  (`/v1/events/{id}` until the frontend exists).
+  body capped at ntfy's 4,096 bytes, click URL to the event page of the
+  front (`https://alertas.ajustino.dev/e/{id}`, ADR-0022; it was
+  `/v1/events/{id}` of the API until the front went live).
 - **webhook**: `POST` of a versioned JSON envelope (`version`, message id,
   subscription id, `sent_at`, items with delivery id, episode id, reason
   `opened` / `escalated` and the event as a GeoJSON Feature, the
