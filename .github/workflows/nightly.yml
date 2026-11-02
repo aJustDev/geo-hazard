@@ -1,8 +1,9 @@
 name: Nightly
 
 # Fuera de `CI` a proposito: Deploy solo escucha a CI, asi que este workflow
-# nunca despliega. Detecta lo que cambia sin que haya push: CVEs publicados
-# despues del ultimo lock y cambios de contrato de los upstreams.
+# no despliega lo que audita. Detecta lo que cambia sin que haya push: CVEs
+# publicados despues del ultimo lock y cambios de contrato de los upstreams.
+# Su unico efecto es `redeploy`: lanzar CI sobre un main que se quedo sin el.
 on:
   schedule:
     - cron: "17 4 * * *"
@@ -37,3 +38,24 @@ jobs:
         env:
           AEMET_API_KEY: ${{ secrets.AEMET_API_KEY }}
         run: uv run pytest -m contract -v
+
+  # El auto-merge de Dependabot lo hace GITHUB_TOKEN, cuyo push no dispara CI
+  # en main y por tanto tampoco Deploy. Si el ultimo commit de main no tiene
+  # CI, se lanza aqui (workflow_dispatch si dispara), y Deploy lo sigue.
+  redeploy:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: CI sobre main si su ultimo commit no lo tiene
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          sha="$(gh api "repos/$REPO/commits/main" -q .sha)"
+          runs="$(gh run list -R "$REPO" --workflow ci.yml --commit "$sha" --json databaseId -q length)"
+          if [ "$runs" -eq 0 ]; then
+            echo "main@$sha sin CI: se lanza"
+            gh workflow run ci.yml -R "$REPO" --ref main
+          fi

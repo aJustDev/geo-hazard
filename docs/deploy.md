@@ -39,11 +39,16 @@ deploy job is skipped unless it is `true`. It stays `false` until the DNS
 record and the server provisioning exist, so enabling deploys is an explicit,
 auditable act.
 
-The `Nightly` workflow (daily cron, never deploys: `Deploy` only listens to
-`CI`) runs `pip-audit` against the lock and the contract tests against the
-live EFFIS, IGN and AEMET endpoints. Dependabot opens one grouped PR a month
-for minor/patch updates of uv packages and actions. GitHub disables scheduled
-workflows after 60 days without repository activity.
+The `Nightly` workflow (daily cron) runs `pip-audit` against the lock and the
+contract tests against the live EFFIS, IGN and AEMET endpoints. Dependabot
+opens one grouped PR a month for minor/patch updates of uv packages and
+actions, and one grouped PR for all pending uv security updates. That
+security PR is auto-merged (`dependabot-automerge.yml`) once the checks that
+`main`'s branch protection requires (`checks`, `image`, `test`) pass. A merge
+made by `GITHUB_TOKEN` does not trigger `CI` on `main`, so the Nightly's
+`redeploy` job dispatches `CI` for a `main` head without a run, and `Deploy`
+follows: a security fix reaches production within a day. GitHub disables
+scheduled workflows after 60 days without repository activity.
 
 ## Server layout
 
