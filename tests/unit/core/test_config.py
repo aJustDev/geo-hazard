@@ -87,3 +87,9 @@ def test_driver_de_avisos_desconocido_rechazado() -> None:
 
 def test_driver_de_avisos_por_defecto_no_envia() -> None:
     assert make().NOTIFICATIONS_DRIVER == "fake"
+
+
+def test_presupuesto_de_entrega_debe_caber_en_el_timeout_del_job() -> None:
+    with pytest.raises(ValidationError, match="NOTIFICATIONS_DELIVER_BUDGET_SECONDS"):
+        make(NOTIFICATIONS_DELIVER_BUDGET_SECONDS=50, NOTIFICATIONS_HTTP_TIMEOUT_SECONDS=10)
+    assert make().NOTIFICATIONS_DELIVER_BUDGET_SECONDS < 55

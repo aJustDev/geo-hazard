@@ -7,3 +7,4 @@ Importar este paquete puebla el job_registry; lo hace app.core.db_registry.
 import app.core.jobs.handlers.aemet_sync  # noqa: F401
 import app.core.jobs.handlers.effis_sync  # noqa: F401
 import app.core.jobs.handlers.ign_sync  # noqa: F401
+import app.core.jobs.handlers.notifications_deliver  # noqa: F401

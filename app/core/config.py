@@ -91,6 +91,18 @@ class Settings(BaseSettings):
     # es el total de cada envio, no por fase.
     NOTIFICATIONS_DRIVER: str = "fake"
     NOTIFICATIONS_HTTP_TIMEOUT_SECONDS: float = 10.0
+    # Base de los enlaces de los mensajes (/v1/events/{id}).
+    NOTIFICATIONS_PUBLIC_BASE_URL: str = "https://geohazard.ajustino.dev"
+    # Entrega (job notifications_deliver): intervalo minimo entre mensajes de
+    # una suscripcion (lo que llega mientras tanto sale agrupado), lineas por
+    # mensaje antes de "y N mas", presupuesto de tiempo por ejecucion (el
+    # job comparte worker con los syncs), pausa tras fallar sin interrupcion
+    # y retencion de entregas y episodios. Valores iniciales a calibrar.
+    NOTIFICATIONS_MIN_INTERVAL_SECONDS: int = 600
+    NOTIFICATIONS_MAX_ITEMS_PER_MESSAGE: int = 5
+    NOTIFICATIONS_DELIVER_BUDGET_SECONDS: float = 30.0
+    NOTIFICATIONS_PAUSE_AFTER_SECONDS: int = 86400
+    NOTIFICATIONS_RETENTION_DAYS: int = 90
 
     model_config = SettingsConfigDict(
         env_file=f".env.{os.getenv('ENVIRONMENT', 'local')}",
@@ -117,6 +129,20 @@ class Settings(BaseSettings):
         # lento no sea reclamado como zombi mientras sigue corriendo.
         if self.JOB_LEASE_SECONDS < 2 * self.JOB_HANDLER_TIMEOUT_SECONDS:
             raise ValueError("JOB_LEASE_SECONDS must be >= 2 * JOB_HANDLER_TIMEOUT_SECONDS")
+        return self
+
+    @model_validator(mode="after")
+    def validate_notifications_budget(self) -> "Settings":
+        # El job de entrega no puede pasarse de su timeout: el presupuesto mas
+        # un ultimo envio lento tienen que caber dentro.
+        if (
+            self.NOTIFICATIONS_DELIVER_BUDGET_SECONDS + self.NOTIFICATIONS_HTTP_TIMEOUT_SECONDS
+            >= self.JOB_HANDLER_TIMEOUT_SECONDS
+        ):
+            raise ValueError(
+                "NOTIFICATIONS_DELIVER_BUDGET_SECONDS + NOTIFICATIONS_HTTP_TIMEOUT_SECONDS "
+                "must be < JOB_HANDLER_TIMEOUT_SECONDS"
+            )
         return self
 
     @model_validator(mode="after")

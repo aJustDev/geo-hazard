@@ -42,6 +42,7 @@ ignore_imports =
     app.core.jobs.handlers.aemet_sync -> app.hazards.repos.hazard_event
     app.core.jobs.handlers.aemet_sync -> app.hazards.repos.sync_state
     app.core.jobs.handlers.aemet_sync -> app.hazards.use_cases.sync_aemet
+    app.core.jobs.handlers.notifications_deliver -> app.notifications.use_cases.deliver
 
 # ---------------------------------------------------------------------------
 # Capas del contexto hazards: una capa solo importa las de abajo.

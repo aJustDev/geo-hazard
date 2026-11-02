@@ -16,6 +16,7 @@ check "app/hazards/use_cases/*" 90
 check "app/hazards/repos/*" 85
 check "app/hazards/services/*" 85
 check "app/analytics/use_cases/*" 90
+check "app/notifications/use_cases/*" 90
 check "app/notifications/repos/*" 85
 check "app/notifications/services/*" 85
 check "app/analytics/queries/*" 85
