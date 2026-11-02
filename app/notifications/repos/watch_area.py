@@ -1,5 +1,5 @@
 from geoalchemy2 import Geography, Geometry
-from sqlalchemy import cast, func
+from sqlalchemy import cast, func, select
 
 from app.core.exceptions.exceptions import NotFoundError
 from app.core.repo import BaseRepo
@@ -12,6 +12,12 @@ class WatchAreaRepo(BaseRepo[WatchAreaORM]):
     """Crea areas vigiladas con su geometria ya resuelta (ADR-0021)."""
 
     model = WatchAreaORM
+
+    async def provinces(self) -> list[tuple[str, str]]:
+        rows = await self.session.execute(
+            select(ProvinceORM.code, ProvinceORM.name).order_by(ProvinceORM.code)
+        )
+        return [(code, name) for code, name in rows]
 
     async def create_province(
         self, spec: ProvinceArea, *, label: str | None = None

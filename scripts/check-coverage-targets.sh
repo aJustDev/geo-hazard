@@ -19,6 +19,7 @@ check "app/analytics/use_cases/*" 90
 check "app/notifications/use_cases/*" 90
 check "app/notifications/repos/*" 85
 check "app/notifications/services/*" 85
+check "app/notifications/cli.py,app/notifications/event_handlers/*" 85
 check "app/analytics/queries/*" 85
 # El nucleo de concurrencia (outbox y jobs) es donde viven los invariantes
 # mas criticos; sin target propio, un hueco alli no lo caza ningun gate.

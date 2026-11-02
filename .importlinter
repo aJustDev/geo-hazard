@@ -107,7 +107,7 @@ modules =
 name = notifications respeta el orden de capas
 type = layers
 layers =
-    (app.notifications.cli)
+    app.notifications.cli
     app.notifications.event_handlers
     app.notifications.use_cases
     app.notifications.repos
