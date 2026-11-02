@@ -15,12 +15,14 @@ DB_CONNECT_TIMEOUT = 3
 
 
 def check_utc_timezone() -> None:
-    """Verifica que el proceso opera en UTC. Fail-fast en prod.
+    """Verifica que el proceso opera en UTC. Fail-fast fuera de local.
 
     Las fuentes emiten timestamps con offset (CAP usa hora local peninsular) y
     el dominio compara ventanas de validez con now(); el proceso debe operar en
-    UTC para que esas comparaciones sean estables. En dev se advierte; en prod
-    se aborta el arranque.
+    UTC para que esas comparaciones sean estables. En local se advierte; en
+    cualquier otro entorno se aborta el arranque. Se compara con "local" y no
+    con el nombre del de produccion, que es "production" en el .env del
+    servidor: la comparacion con "prod" nunca abortaba.
     """
     local_tz = (time.tzname[0] or "").upper() if time.tzname else ""
     env_tz = (os.environ.get("TZ") or "").upper()
@@ -33,7 +35,7 @@ def check_utc_timezone() -> None:
         f"Process timezone is not UTC (tzname={time.tzname}, TZ={env_tz}). "
         "Set TZ=UTC in the deploy environment."
     )
-    if settings.ENVIRONMENT == "prod":
+    if settings.ENVIRONMENT != "local":
         raise RuntimeError(message)
     logger.warning(message)
 

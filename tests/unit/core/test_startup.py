@@ -30,10 +30,14 @@ def test_check_data_dir_no_escribible_aborta(
         check_data_dir()
 
 
-def test_check_utc_no_utc_en_prod_aborta(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("environment", ["production", "prod", "staging"])
+def test_check_utc_no_utc_fuera_de_local_aborta(
+    monkeypatch: pytest.MonkeyPatch, environment: str
+) -> None:
+    # "production" es el valor real del .env del servidor.
     monkeypatch.setattr(time, "tzname", ("CET", "CEST"))
     monkeypatch.delenv("TZ", raising=False)
-    monkeypatch.setattr(startup.settings, "ENVIRONMENT", "prod")
+    monkeypatch.setattr(startup.settings, "ENVIRONMENT", environment)
 
     with pytest.raises(RuntimeError, match="not UTC"):
         check_utc_timezone()
