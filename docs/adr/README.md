@@ -25,3 +25,4 @@ Context / Decision / Consequences sections.
 | [0018](0018-backups-and-disaster-recovery.md)          | Backups and disaster recovery                                                         | Accepted | 2026-07-05 |
 | [0019](0019-operational-observability.md)              | Operational observability (sources status, JSON logs, metrics, alerting)              | Accepted | 2026-07-05 |
 | [0020](0020-source-and-zone-configuration-model.md)    | Sources and zones as configuration                                                    | Proposed | 2026-10-16 |
+| [0021](0021-notifications-for-watch-areas.md)          | Notifications for watch areas                                                         | Proposed | 2026-11-02 |
