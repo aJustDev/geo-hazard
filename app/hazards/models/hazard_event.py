@@ -69,6 +69,11 @@ class HazardEventORM(UUIDPkMixin, TimestampsMixin, Base):
         # caso comun) ordena por (starts_at DESC, id DESC); sin este indice
         # cada pagina paga un sort completo (ADR-0006).
         Index("ix_hazard_events_starts_at_id", text("starts_at DESC"), text("id DESC")),
+        # Seleccion de las filas de un lote por la marca de tiempo de su
+        # transaccion (ADR-0021): created_at para inserts, updated_at para
+        # updates y cierres.
+        Index("ix_hazard_events_source_created_at", "source", "created_at"),
+        Index("ix_hazard_events_source_updated_at", "source", "updated_at"),
         # Parcial: solo los eventos con ventana participan en `active=true`.
         Index(
             "ix_hazard_events_ends_at_activos",

@@ -57,6 +57,21 @@ async def _state(dsn: str) -> tuple[str | None, bool]:
         await conn.close()
 
 
+async def _lote_indexes(dsn: str) -> dict[str, bool]:
+    # Los indices CONCURRENTLY se construyen fuera de la transaccion de
+    # alembic: un build fallido deja el indice INVALID sin error visible.
+    conn = await asyncpg.connect(dsn)
+    try:
+        rows = await conn.fetch(
+            "SELECT c.relname, i.indisvalid FROM pg_index i "
+            "JOIN pg_class c ON c.oid = i.indexrelid "
+            "WHERE c.relname LIKE 'ix_hazard_events_source_%'"
+        )
+        return {r["relname"]: r["indisvalid"] for r in rows}
+    finally:
+        await conn.close()
+
+
 def test_upgrade_por_cli_deja_la_bd_en_head(pg_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
     name = f"migrations_cli_{uuid4().hex[:8]}"
     base, _, _ = pg_url.rpartition("/")
@@ -71,5 +86,9 @@ def test_upgrade_por_cli_deja_la_bd_en_head(pg_url: str, monkeypatch: pytest.Mon
         version, has_events = asyncio.run(_state(_plain_dsn(fresh_url)))
         assert version == ScriptDirectory.from_config(cfg).get_current_head()
         assert has_events
+        assert asyncio.run(_lote_indexes(_plain_dsn(fresh_url))) == {
+            "ix_hazard_events_source_created_at": True,
+            "ix_hazard_events_source_updated_at": True,
+        }
     finally:
         asyncio.run(_drop_db(_plain_dsn(pg_url), name))
