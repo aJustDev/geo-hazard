@@ -20,7 +20,7 @@ forbidden_modules =
     app.main
 
 [importlinter:contract:core-agnostico-del-dominio]
-name = app.core no importa app.hazards ni app.analytics (salvo wiring)
+name = app.core no importa app.hazards, app.analytics ni app.notifications (salvo wiring)
 type = forbidden
 allow_indirect_imports = True
 source_modules =
@@ -28,8 +28,10 @@ source_modules =
 forbidden_modules =
     app.hazards
     app.analytics
+    app.notifications
 ignore_imports =
     app.core.db_registry -> app.hazards.models
+    app.core.db_registry -> app.notifications.models
     app.core.db_registry -> app.hazards.event_handlers.export_geoparquet
     app.core.jobs.handlers.effis_sync -> app.hazards.repos.hazard_event
     app.core.jobs.handlers.effis_sync -> app.hazards.repos.sync_state
@@ -94,3 +96,49 @@ type = independence
 modules =
     app.hazards
     app.analytics
+
+# ---------------------------------------------------------------------------
+# Contexto notifications (ADR-0021): cli -> event_handlers -> use_cases ->
+# repos -> services -> schemas -> models. Sin API HTTP en la etapa 1.
+# ---------------------------------------------------------------------------
+[importlinter:contract:notifications-por-capas]
+name = notifications respeta el orden de capas
+type = layers
+layers =
+    (app.notifications.cli)
+    app.notifications.event_handlers
+    app.notifications.use_cases
+    app.notifications.repos
+    app.notifications.services
+    app.notifications.schemas
+    app.notifications.models
+
+# Lee hazards por su superficie estable (models, events, services puros,
+# schemas); nunca su api, use_cases, repos ni event_handlers, ni el wiring.
+[importlinter:contract:notifications-superficie-hazards]
+name = notifications solo usa models, events, services y schemas de hazards
+type = forbidden
+source_modules =
+    app.notifications
+forbidden_modules =
+    app.hazards.api
+    app.hazards.use_cases
+    app.hazards.repos
+    app.hazards.event_handlers
+    app.api
+    app.main
+
+[importlinter:contract:hazards-no-conoce-notifications]
+name = hazards no importa notifications
+type = forbidden
+source_modules =
+    app.hazards
+forbidden_modules =
+    app.notifications
+
+[importlinter:contract:analytics-y-notifications-independientes]
+name = analytics y notifications no se importan entre si
+type = independence
+modules =
+    app.analytics
+    app.notifications

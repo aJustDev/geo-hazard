@@ -10,3 +10,4 @@ import app.core.jobs.handlers  # noqa: F401 - registra los job handlers
 import app.core.jobs.models  # noqa: F401
 import app.hazards.event_handlers.export_geoparquet  # noqa: F401 - registra el handler del outbox
 import app.hazards.models  # noqa: F401
+import app.notifications.models  # noqa: F401
