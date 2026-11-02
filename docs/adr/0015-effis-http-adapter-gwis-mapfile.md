@@ -19,8 +19,10 @@ fresh data. Real payloads are captured under `tests/fixtures/effis/`.
 - Base URL `https://maps.effis.emergency.copernicus.eu/gwis`, WFS 1.0.0
   with `outputFormat=geojson` (2.0.0 returns 502, 1.1.0 hangs).
 - Layers: `nrt.ba.poly.week` (stable `fire_id`, `initialdate`, `area` in
-  hectares) and `all.hs.week` (`id`, `acq_at`, `CLASS`). The rolling window
-  is resolved by the layer NAME; the WFS silently ignores `TIME`. "week"
+  hectares) and `all.hs.week.points` (`id`, `acq_at`, `CLASS`; named
+  `all.hs.week` until EFFIS renamed it around 2026-10-28, same schema).
+  The rolling window is resolved by the layer NAME; the WFS silently
+  ignores `TIME`. "week"
   over "today": with a 4-hour sync cadence the overlap makes missed runs
   harmless, and content-hash upserts absorb re-served rows. The
   attribute-rich `*.hs.query` archives are unusable for sync (full history
@@ -43,7 +45,10 @@ fresh data. Real payloads are captured under `tests/fixtures/effis/`.
 - MapServer answers HTTP 200 with a `ServiceExceptionReport` XML when a
   layer backend fails (observed for days on `/effis`): the driver maps
   that to a TRANSIENT error (retry next poll). Protocol errors are
-  reserved for real contract changes: 4xx or unparseable JSON.
+  reserved for real contract changes: 4xx, unparseable JSON, or a
+  `ServiceExceptionReport` with code `InvalidParameterValue` (a layer that
+  no longer exists; the 2026-10-28 rename went five days unnoticed while it
+  was classified as transient).
 
 ## Consequences
 

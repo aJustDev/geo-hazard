@@ -24,7 +24,8 @@ described here.
     Properties: `id`, `fire_id` (stable), `initialdate`, `finaldate`,
     `area` (ha). The rolling window is resolved server-side by the layer
     name; the `TIME` parameter is silently ignored on WFS.
-  - Hotspots: `all.hs.{today,week,month,season}` (union of sensors; also
+  - Hotspots: `all.hs.{today,week,month,season}.points` (union of sensors;
+    the `.points` suffix appeared around 2026-10-28; also
     per-sensor `modis.hs.*`, `viirs.hs.*`, `s3.hs.*` but several of those
     time out intermittently). Properties: `id`, `acq_at`, `CLASS`.
   - **Axis-order gotcha**: the GeoJSON output serializes coordinates as

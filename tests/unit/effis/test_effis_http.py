@@ -87,6 +87,28 @@ async def test_excepcion_xml_de_mapserver_es_transitoria() -> None:
         await _client(handler).fetch_burnt_areas()
 
 
+async def test_capa_inexistente_es_error_de_protocolo() -> None:
+    # Respuesta real de gwis al pedir all.hs.week tras su renombrado
+    # (2026-11-02): mismo 200 + ServiceExceptionReport, pero reintentar no lo
+    # arregla. Como transitorio, la caida paso 5 dias por "fuente no
+    # disponible" y el contract test se saltaba.
+    body = (
+        b"<?xml version='1.0' encoding=\"UTF-8\" ?>"
+        b'<ServiceExceptionReport version="1.2.0">'
+        b'<ServiceException code="InvalidParameterValue" locator="typename">'
+        b"msWFSGetFeature(): WFS server error. TYPENAME &#39;all.hs.week&#39; doesn&#39;t"
+        b" exist in this server.  Please check the capabilities and reformulate your request."
+        b"</ServiceException>"
+        b"</ServiceExceptionReport>"
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body)
+
+    with pytest.raises(EffisProtocolError, match="rejected the request"):
+        await _client(handler).fetch_hotspots()
+
+
 async def test_respuesta_gigante_se_corta(monkeypatch: pytest.MonkeyPatch) -> None:
     # C3 (ADR-0017): un cuerpo mayor que el tope se corta por streaming y se
     # trata como transitorio, en vez de materializarse entero en RAM.

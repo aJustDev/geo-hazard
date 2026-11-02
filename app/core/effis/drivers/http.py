@@ -20,7 +20,7 @@ from app.core.effis.types import EffisRecord
 from app.core.http import USER_AGENT, ResponseTooLargeError, get_capped
 
 BASE_URL = "https://maps.effis.emergency.copernicus.eu/gwis"
-HOTSPOTS_LAYER = "all.hs.week"
+HOTSPOTS_LAYER = "all.hs.week.points"
 BURNT_AREAS_LAYER = "nrt.ba.poly.week"
 
 _TIMEOUT_SECONDS = 60.0
@@ -75,6 +75,12 @@ class EffisHttpClient:
             # Un 4xx no se arregla reintentando: la URL o el contrato cambiaron.
             raise EffisProtocolError(f"EFFIS WFS returned {status_code}")
         if b"ServiceExceptionReport" in body[:512]:
+            if b"InvalidParameterValue" in body:
+                # MapServer rechaza un parametro de la peticion, tipicamente
+                # una capa que ya no existe (all.hs.week paso a ser
+                # all.hs.week.points hacia el 2026-10-28): reintentar no lo
+                # arregla, el contrato cambio.
+                raise EffisProtocolError(f"EFFIS WFS rejected the request for {typename}")
             # MapServer responde 200 con una excepcion XML cuando el backend
             # de la capa falla (observado durante dias en /effis): es un
             # fallo del servidor, no un cambio de contrato. Reintentable.
