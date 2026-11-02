@@ -27,6 +27,9 @@ ingest.
   rewrites a GeoParquet snapshot, and the analytics endpoints (burned area by
   province and month, earthquake frequency, warnings by phenomenon) run on
   DuckDB over that history, never on the operational database.
+- Pushes notifications per watch area (a province, a rectangle or a circle)
+  over ntfy or a signed webhook, grouped into episodes so a warning that
+  AEMET updates every half hour arrives once (ADR-0021).
 
 ## Why it exists
 

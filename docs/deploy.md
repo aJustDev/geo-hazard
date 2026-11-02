@@ -54,7 +54,7 @@ scheduled workflows after 60 days without repository activity.
 
 - `/opt/geohazard`: git checkout of this repo. Runtime configuration lives
   ONLY in `/opt/geohazard/.env` (database credentials, `AEMET_API_KEY`,
-  `*_DRIVER=http`); it is never committed.
+  `*_DRIVER=http` including `NOTIFICATIONS_DRIVER`); it is never committed.
 - [`compose.yml`](../compose.yml) (production): PostGIS on
   `127.0.0.1:5436`, API on `127.0.0.1:8002`, both with explicit memory
   limits. Named volumes: `geohazard_pgdata` (database) and `geohazard_data`
@@ -162,6 +162,45 @@ since 2026-08-13, total loss of the host (ADR-0018 amendment).
   `docker logs geohazard-api | tail -1` should be a JSON line.
 - **`GET /metrics`** (Prometheus) is app-level and has no consumer today
   (ADR-0019 amendment); the edge returns 404 for it publicly.
+
+### Notifications (ADR-0021)
+
+Push notifications per watch area (province, bbox or circle) over ntfy or a
+signed webhook. Nothing is sent until a subscription exists.
+
+- **Turn it on**: set `NOTIFICATIONS_DRIVER=http` in `/opt/geohazard/.env`
+  and recreate the API so it reads it:
+  `docker compose up -d --force-recreate api`. The other
+  `NOTIFICATIONS_*` knobs are in [`.env.example`](../.env.example).
+- **Manage subscriptions** with the CLI inside the container:
+  ```
+  docker exec geohazard-api python -m app.notifications.cli provinces
+  docker exec geohazard-api python -m app.notifications.cli add --province 30 \
+      --types weather_warning,earthquake,wildfire --severity-min 2 --ntfy
+  docker exec geohazard-api python -m app.notifications.cli add --circle -0.99,37.62,30 \
+      --label Cartagena --types earthquake --severity-min 2 --same-channel-as <id>
+  docker exec geohazard-api python -m app.notifications.cli test <id>
+  docker exec geohazard-api python -m app.notifications.cli list
+  docker exec geohazard-api python -m app.notifications.cli stats
+  ```
+  `add` generates the ntfy topic or the webhook key and prints it once; it
+  never takes one as an argument. It refuses to run outside `local` while
+  the driver is `fake`.
+- **Kill switches**: `cli pause <id>` per subscription (pending items are
+  dropped); for everything, park the delivery job:
+  `UPDATE scheduled_jobs SET next_run_at = 'infinity' WHERE job_name = 'notifications_deliver'`.
+  Matching keeps recording episodes meanwhile; resume with `next_run_at = now()`.
+- **Health**: `cli list` shows paused subscriptions with the reason and the
+  last delivery error (scheme and host only, never the URL or topic). A
+  subscription pauses itself after 24 h failing without interruption.
+- **Replaying a lost batch**: an outbox event that exhausts its retries
+  (about 8 minutes of database trouble) never notifies. Replay it with
+  `UPDATE outbox_events SET status = 'PENDING', retry_count = 0 WHERE id = '<id>'`;
+  `export_geoparquet` is skipped as already completed and matching is
+  idempotent.
+- **Webhook receivers** verify `X-Geohazard-Signature: t=<unix>,v1=<hex>`:
+  HMAC-SHA256 with the subscription key over `"<t>." + raw body`, rejecting
+  stale `t`. Delivery is at least once: deduplicate on `items[].delivery_id`.
 
 ### Reverse proxy
 

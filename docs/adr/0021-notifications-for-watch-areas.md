@@ -1,7 +1,7 @@
 # 0021 - Notifications for watch areas
 
-Status: Proposed (design; implementation is the first product stage: no
-accounts, ntfy and webhook channels, subscriptions managed by CLI)
+Status: Accepted (first product stage: no accounts, ntfy and webhook
+channels, subscriptions managed by CLI)
 Date: 2026-11-02
 
 ## Context
