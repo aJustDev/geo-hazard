@@ -19,6 +19,7 @@ from app.core.jobs.handlers import effis_sync as effis_sync_module
 from app.hazards.event_handlers import export_geoparquet as export_module
 from app.hazards.models.hazard_event import HazardEventORM
 from app.hazards.models.sync_state import SourceSyncStateORM
+from app.notifications.event_handlers import match_notifications as match_module
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 
@@ -33,6 +34,7 @@ def wired_pipeline(
     monkeypatch.setattr(effis_sync_module, "async_session_factory", committing_factory)
     monkeypatch.setattr(events_worker_module, "async_session_factory", committing_factory)
     monkeypatch.setattr(export_module, "async_session_factory", committing_factory)
+    monkeypatch.setattr(match_module, "async_session_factory", committing_factory)
     monkeypatch.setattr(config.settings, "DATA_DIR", str(tmp_path))
     (tmp_path / "exports").mkdir()
     effis_client_registry.reset()

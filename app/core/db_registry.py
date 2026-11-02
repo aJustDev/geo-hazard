@@ -10,4 +10,8 @@ import app.core.jobs.handlers  # noqa: F401 - registra los job handlers
 import app.core.jobs.models  # noqa: F401
 import app.hazards.event_handlers.export_geoparquet  # noqa: F401 - registra el handler del outbox
 import app.hazards.models  # noqa: F401
+
+# Despues de export_geoparquet: el dispatcher corre los handlers en orden de
+# import y el snapshot no debe esperar a los avisos.
+import app.notifications.event_handlers.match_notifications  # noqa: F401
 import app.notifications.models  # noqa: F401

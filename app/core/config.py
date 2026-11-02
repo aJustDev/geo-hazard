@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     NOTIFICATIONS_DELIVER_BUDGET_SECONDS: float = 30.0
     NOTIFICATIONS_PAUSE_AFTER_SECONDS: int = 86400
     NOTIFICATIONS_RETENTION_DAYS: int = 90
+    # Cruce (handler match_notifications): gracia de un episodio AEMET tras
+    # su ultimo aviso (un Update cierra el anterior en el mismo lote) y
+    # antiguedad maxima de un sismo para avisar (IGN re-sirve 10 dias).
+    NOTIFICATIONS_AEMET_EPISODE_GRACE_SECONDS: int = 10800
+    NOTIFICATIONS_QUAKE_MAX_AGE_SECONDS: int = 172800
 
     model_config = SettingsConfigDict(
         env_file=f".env.{os.getenv('ENVIRONMENT', 'local')}",

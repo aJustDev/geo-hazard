@@ -32,6 +32,7 @@ forbidden_modules =
 ignore_imports =
     app.core.db_registry -> app.hazards.models
     app.core.db_registry -> app.notifications.models
+    app.core.db_registry -> app.notifications.event_handlers.match_notifications
     app.core.db_registry -> app.hazards.event_handlers.export_geoparquet
     app.core.jobs.handlers.effis_sync -> app.hazards.repos.hazard_event
     app.core.jobs.handlers.effis_sync -> app.hazards.repos.sync_state
