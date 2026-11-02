@@ -27,6 +27,9 @@ check "app/core/jobs/*" 85
 # donde un dato malformado tumba un lote. El 85% global lo enmascararia.
 check "app/core/*/parser.py" 90
 check "app/core/*/drivers/*" 85
+# La guarda de salida de los avisos: una rama sin probar es una puerta a la
+# red interna del servidor (ADR-0021).
+check "app/core/channels/*" 90
 check "app/hazards/api/*,app/analytics/api/*,app/api/*" 85
 
 echo "OK: todos los targets por modulo cumplidos"

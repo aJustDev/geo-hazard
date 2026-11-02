@@ -86,6 +86,12 @@ class Settings(BaseSettings):
     # la cobertura de incendios es cambiar este valor, no el codigo.
     EFFIS_BBOX: str = "-19,27,5,44"
 
+    # Avisos por area vigilada (ADR-0021). Driver de los canales: "fake"
+    # (dev/tests, no envia nada) o "http" (ntfy y webhooks reales). El tiempo
+    # es el total de cada envio, no por fase.
+    NOTIFICATIONS_DRIVER: str = "fake"
+    NOTIFICATIONS_HTTP_TIMEOUT_SECONDS: float = 10.0
+
     model_config = SettingsConfigDict(
         env_file=f".env.{os.getenv('ENVIRONMENT', 'local')}",
         env_file_encoding="utf-8",
@@ -117,7 +123,7 @@ class Settings(BaseSettings):
     def validate_drivers(self) -> "Settings":
         # Cada driver solo admite sus valores conocidos; un typo en el .env
         # debe tumbar el arranque, no degradar en silencio al fake.
-        for name in ("EFFIS_DRIVER", "IGN_DRIVER", "AEMET_DRIVER"):
+        for name in ("EFFIS_DRIVER", "IGN_DRIVER", "AEMET_DRIVER", "NOTIFICATIONS_DRIVER"):
             value = getattr(self, name)
             if value not in ("fake", "http"):
                 raise ValueError(f"{name} must be 'fake' or 'http', got {value!r}")

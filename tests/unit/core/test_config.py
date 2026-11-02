@@ -78,3 +78,12 @@ def test_bbox_effis_por_defecto_cubre_peninsula_baleares_y_canarias() -> None:
 def test_bbox_effis_invalido_rechazado(bbox: str) -> None:
     with pytest.raises(ValidationError, match="EFFIS_BBOX"):
         make(EFFIS_BBOX=bbox)
+
+
+def test_driver_de_avisos_desconocido_rechazado() -> None:
+    with pytest.raises(ValidationError, match="NOTIFICATIONS_DRIVER"):
+        make(NOTIFICATIONS_DRIVER="smtp")
+
+
+def test_driver_de_avisos_por_defecto_no_envia() -> None:
+    assert make().NOTIFICATIONS_DRIVER == "fake"
