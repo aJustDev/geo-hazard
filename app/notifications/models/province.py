@@ -11,9 +11,8 @@ class ProvinceORM(Base):
 
     Sembrada por migracion desde data/reference/provinces_es.parquet, el
     mismo fichero que lee el plano analitico (ADR-0013): una sola fuente de
-    verdad para los dos planos. `inner_geom` es la provincia encogida 1 km,
-    contra la que se casan los poligonos (un aviso AEMET que solo roza el
-    borde no avisa a la vecina); se calcula una vez en la migracion.
+    verdad para los dos planos. Un poligono (zona AEMET, area quemada)
+    pertenece a la provincia con la que mas solapa.
     """
 
     __tablename__ = "provinces"
@@ -22,9 +21,6 @@ class ProvinceORM(Base):
     code: Mapped[str] = mapped_column(String(2), primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     geom: Mapped[WKBElement] = mapped_column(
-        Geometry(geometry_type="MULTIPOLYGON", srid=4326, spatial_index=True), nullable=False
-    )
-    inner_geom: Mapped[WKBElement] = mapped_column(
         Geometry(geometry_type="MULTIPOLYGON", srid=4326, spatial_index=True), nullable=False
     )
 

@@ -64,19 +64,23 @@ drivers.
   (lon, lat, radius between 1 km and 200 km);
 - `params` (JSONB) with those inputs and a `label`, for display;
 - `geom`: the resolved MultiPolygon in EPSG:4326, materialized at creation
-  (a circle is a geography buffer, exact in Canarias too);
-- `match_geom`: what polygon events are matched against. For a province it
-  is the province shrunk 1 km inward, so an AEMET zone that only grazes the
-  border (or a simplification sliver, ADR-0013) does not notify the
-  neighbor; for bbox and circle it equals `geom`. Point events (quakes) are
-  matched against `geom`: an epicenter on the border belongs to it.
+  (a circle is a geography buffer, exact in Canarias too).
 
-Provinces move into PostGIS as a `provinces` table (code, name, `geom`,
-`inner_geom`), seeded by a migration from the same
-`data/reference/provinces_es.parquet` the analytics plane reads, so both
-planes share one source of truth. The 1 km inner geometry is computed once
-in that migration; changing the margin is a new migration, and CI checks
-that no province ends up empty.
+How an event matches depends on the kind. For bbox and circle, the event
+touches `geom`. For a province, a point (a quake) falls inside it, and a
+polygon (an AEMET zone, a burnt area) belongs to it when that is the
+province it overlaps most. AEMET zone polygons are coarse and cross
+provincial borders: checked against the warnings stored in production on
+2026-11-02, a plain intersection, and even the province shrunk 1 km inward,
+let a neighbor's zone through (Valle del Almanzora, in Almeria, into
+Murcia) and dropped coastal zones that are mostly sea; the largest overlap
+assigned Murcia exactly its seven zones, coast included, and every island
+zone to its province. AEMET zone codes were no shortcut either: their
+province digits are not the INE code in the Balearic and Canary Islands.
+
+Provinces move into PostGIS as a `provinces` table (code, name, `geom`),
+seeded by a migration from the same `data/reference/provinces_es.parquet`
+the analytics plane reads, so both planes share one source of truth.
 
 ### Subscriptions
 
@@ -122,8 +126,8 @@ idempotent. It takes the batch's notifiable rows (AEMET: `ends_at >
 batch_at`, which excludes closures and includes future onsets; EFFIS: open
 burnt areas; IGN: quakes that started within the last 48 h, so a revision
 sweep over the 10-day window cannot burst), keeps those that pass each
-subscription's type and severity filters, intersects them with `match_geom`
-/ `geom` (GiST), and assigns each match to an **episode**:
+subscription's type and severity filters, matches them against each watch
+area as described above (GiST), and assigns each match to an **episode**:
 
 | Source           | Episode key                                           | The episode stays current while                   |
 | ---------------- | ----------------------------------------------------- | ------------------------------------------------- |
@@ -239,8 +243,8 @@ when they have no pending delivery. The delivery job purges both.
   events already in force; an outbox event that exhausts its retries (about
   8 minutes of database outage) never notifies unless it is replayed by
   hand (`status = 'PENDING', retry_count = 0`).
-- The first values of the knobs (1 km inward margin, 3 h grace, 48 h quake
-  age, 10 min interval, items per message, 24 h pause) are guesses. A few
+- The first values of the knobs (3 h grace, 48 h quake age, 10 min
+  interval, items per message, 24 h pause) are guesses. A few
   weeks of real use by the operator, measuring messages per week and false
   positives, set them before anyone else subscribes.
 - The tables are built so the next stages are additions: a public API with

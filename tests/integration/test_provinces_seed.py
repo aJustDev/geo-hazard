@@ -1,5 +1,5 @@
-"""Siembra de provincias en PostGIS (ADR-0021): 52 filas validas, inner_geom
-encogida y no vacia, y cada punto de referencia cae en su provincia."""
+"""Siembra de provincias en PostGIS (ADR-0021): 52 filas validas y cada punto
+de referencia cae en su provincia."""
 
 import pytest
 from sqlalchemy import func, select
@@ -16,42 +16,14 @@ async def test_52_provincias_validas_y_multipoligono(db_session: AsyncSession) -
             select(
                 func.count(),
                 func.count().filter(func.ST_IsValid(ProvinceORM.geom)),
-                func.count().filter(func.ST_IsValid(ProvinceORM.inner_geom)),
-                func.count().filter(func.ST_IsEmpty(ProvinceORM.inner_geom)),
                 func.count().filter(func.GeometryType(ProvinceORM.geom) != "MULTIPOLYGON"),
             )
         )
     ).one()
-    total, geom_ok, inner_ok, inner_empty, not_multi = rows
+    total, geom_ok, not_multi = rows
     assert total == 52
     assert geom_ok == 52
-    assert inner_ok == 52
-    assert inner_empty == 0
     assert not_multi == 0
-
-
-async def test_inner_geom_encogida_dentro_de_la_provincia(db_session: AsyncSession) -> None:
-    # Toda inner_geom cabe en su provincia y es mas pequena: el margen se
-    # aplico. Una isla estrecha puede caer a la geometria completa (igual).
-    rows = (
-        await db_session.execute(
-            select(
-                ProvinceORM.code,
-                func.ST_Covers(ProvinceORM.geom, func.ST_Buffer(ProvinceORM.inner_geom, -1e-9)),
-                func.ST_Area(ProvinceORM.inner_geom) <= func.ST_Area(ProvinceORM.geom),
-            )
-        )
-    ).all()
-    assert all(covered and smaller for _, covered, smaller in rows), rows
-
-    murcia_ratio = (
-        await db_session.execute(
-            select(func.ST_Area(ProvinceORM.inner_geom) / func.ST_Area(ProvinceORM.geom)).where(
-                ProvinceORM.code == "30"
-            )
-        )
-    ).scalar_one()
-    assert 0.9 < murcia_ratio < 1.0
 
 
 @pytest.mark.parametrize(
