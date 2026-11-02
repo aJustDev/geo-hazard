@@ -124,12 +124,36 @@ async def test_worker_lifecycle_ejecuta_en_segundo_plano(
     assert row.status == "PENDING"
 
 
-async def test_job_sin_handler_registra_el_error(
+async def test_job_sin_handler_en_este_proceso_no_se_reclama(
     committing_factory: async_sessionmaker,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # Un job sembrado sin handler (typo, refactor) no debe quedarse RUNNING
-    # ni reventar el worker: se reprograma con el error a la vista.
+    # El caso real es el deploy: la migracion siembra un job nuevo y el
+    # contenedor viejo, que no lo conoce, no debe reclamarlo ni dejarle un
+    # error. Queda PENDING y vencido para el worker que tenga su handler.
+    monkeypatch.setattr(worker_module, "async_session_factory", committing_factory)
+    due = datetime.now(UTC) - timedelta(seconds=1)
+    await _seed_job(
+        committing_factory,
+        job_name="test.de_la_version_nueva",
+        interval_seconds=60,
+        status="PENDING",
+        next_run_at=due,
+    )
+
+    await JobWorker()._process_due_jobs()
+
+    row = await _fetch(committing_factory, "test.de_la_version_nueva")
+    assert (row.status, row.run_count, row.last_error) == ("PENDING", 0, None)
+    assert row.next_run_at == due
+
+
+async def test_ejecutar_un_job_sin_handler_registra_el_error(
+    committing_factory: async_sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Defensa si se llega a ejecutar uno (p. ej. el registry cambio entre la
+    # seleccion y el claim): no se queda RUNNING y el error queda a la vista.
     monkeypatch.setattr(worker_module, "async_session_factory", committing_factory)
     await _seed_job(
         committing_factory,
@@ -138,8 +162,9 @@ async def test_job_sin_handler_registra_el_error(
         status="PENDING",
         next_run_at=datetime.now(UTC) - timedelta(seconds=1),
     )
+    row = await _fetch(committing_factory, "test.huerfano")
 
-    await JobWorker()._process_due_jobs()
+    await JobWorker()._execute_job(row.id)
 
     row = await _fetch(committing_factory, "test.huerfano")
     assert row.status == "PENDING"

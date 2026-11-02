@@ -82,7 +82,11 @@ class JobWorker:
                 logger.warning("Recovered %d stale RUNNING jobs", result.rowcount)  # type: ignore[attr-defined]
 
     # Procesado: SELECT ligero de ids candidatos sin lock; cada job se claima
-    # atomicamente en su propia transaccion via `_execute_job`.
+    # atomicamente en su propia transaccion via `_execute_job`. Solo jobs con
+    # handler en ESTE proceso: durante un deploy la migracion siembra el job
+    # nuevo antes de recrear la API, y el contenedor viejo lo reclamaria sin
+    # saber ejecutarlo; asi lo deja para el nuevo. Un job sembrado sin handler
+    # en el codigo lo caza en CI tests/unit/meta/test_jobs_sembrados.py.
 
     async def _process_due_jobs(self) -> None:
         async with async_session_factory() as session:
@@ -90,6 +94,7 @@ class JobWorker:
                 select(ScheduledJobORM.id)
                 .where(ScheduledJobORM.status == "PENDING")
                 .where(ScheduledJobORM.next_run_at <= datetime.now(UTC))
+                .where(ScheduledJobORM.job_name.in_(job_registry.registered_jobs))
                 .order_by(ScheduledJobORM.next_run_at)
                 .limit(BATCH_SIZE)
             )
