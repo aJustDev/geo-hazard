@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from app.core.effis.driver import EffisClient
@@ -43,8 +43,9 @@ class SyncEffisUseCase:
         burnt_areas = await client.fetch_burnt_areas()
         rows = [self._to_row(record) for record in hotspots + burnt_areas]
 
+        batch_at = await self.repo.transaction_now()
         inserted, updated = await self.repo.upsert_batch(rows)
-        closed = await self._close_vanished(burnt_areas)
+        closed = await self._close_vanished(burnt_areas, batch_at=batch_at)
         await self.sync_state.record_success(
             SOURCE, cursor={"burnt_area_ids": sorted(r.external_id for r in burnt_areas)}
         )
@@ -52,7 +53,13 @@ class SyncEffisUseCase:
         if inserted or updated or closed:
             await self.event_bus.publish(
                 BATCH_INGESTED,
-                {"source": SOURCE, "inserted": inserted, "updated": updated, "closed": closed},
+                {
+                    "source": SOURCE,
+                    "inserted": inserted,
+                    "updated": updated,
+                    "closed": closed,
+                    "batch_at": batch_at.isoformat(),
+                },
             )
         logger.info(
             "effis sync: %d inserted, %d updated, %d closed (%d fetched)",
@@ -63,17 +70,17 @@ class SyncEffisUseCase:
         )
         return (inserted, updated, closed)
 
-    async def _close_vanished(self, burnt_areas: list[EffisRecord]) -> int:
+    async def _close_vanished(self, burnt_areas: list[EffisRecord], *, batch_at: datetime) -> int:
         # Un area quemada del cursor anterior que ya no viene en la capa NRT
-        # se cierra a "ahora": la fuente dejo de observarla (ADR-0016).
+        # se cierra a "ahora": la fuente dejo de observarla (ADR-0016). Ahora
+        # es la marca del lote y no el reloj de Python, que va por delante
+        # del inicio de la transaccion (ADR-0021).
         state = await self.sync_state.get(SOURCE)
         previous = set(state.cursor.get("burnt_area_ids", [])) if state is not None else set()
         vanished = previous - {r.external_id for r in burnt_areas}
         if not vanished:
             return 0
-        return await self.repo.close_events(
-            source=SOURCE, external_ids=vanished, ended_at=datetime.now(UTC)
-        )
+        return await self.repo.close_events(source=SOURCE, external_ids=vanished, ended_at=batch_at)
 
     @staticmethod
     def _to_row(record: EffisRecord) -> dict[str, Any]:

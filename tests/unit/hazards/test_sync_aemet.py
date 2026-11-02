@@ -7,6 +7,7 @@ from app.core.aemet.types import MSG_TYPE_CANCEL, MSG_TYPE_UPDATE, AemetWarning
 from app.hazards.use_cases.sync_aemet import SyncAemetUseCase
 
 SENT = datetime(2026, 7, 2, 16, 28, 3, tzinfo=UTC)
+BATCH_AT = datetime(2026, 7, 2, 16, 45, 0, 123456, tzinfo=UTC)
 
 
 def make_use_case(
@@ -17,6 +18,7 @@ def make_use_case(
     repo = AsyncMock()
     repo.upsert_batch.return_value = upsert_result
     repo.close_events.return_value = 0
+    repo.transaction_now.return_value = BATCH_AT
     sync_state = AsyncMock()
     if previous_identifiers is None:
         sync_state.get.return_value = None
@@ -108,22 +110,29 @@ async def test_cancel_solo_cierra() -> None:
     assert set(repo.close_events.call_args.kwargs["external_ids"]) == {"aviso-naranja-1"}
     # Cerrar avisos tambien refresca el snapshot: hay evento de lote.
     payload = bus.publish.call_args.args[1]
-    assert payload == {"source": "aemet", "inserted": 0, "updated": 0, "closed": 1}
+    assert payload == {
+        "source": "aemet",
+        "inserted": 0,
+        "updated": 0,
+        "closed": 1,
+        "batch_at": BATCH_AT.isoformat(),
+    }
 
 
-async def test_desaparecido_del_boletin_se_cierra_a_ahora() -> None:
+async def test_desaparecido_del_boletin_se_cierra_a_la_marca_del_lote() -> None:
     # "aviso-retirado" estaba en el cursor anterior pero ya no viene en el
     # boletin ni tiene Cancel: AEMET lo retiro al elaborar el nuevo.
     use_case, repo, _, _ = make_use_case(
         (1, 0), previous_identifiers=["aviso-retirado", "aviso-naranja-1"]
     )
 
-    before = datetime.now(UTC)
     await use_case.execute(client=AemetFakeClient(warnings=[_naranja()]))
 
     kwargs = repo.close_events.call_args.kwargs
     assert set(kwargs["external_ids"]) == {"aviso-retirado"}
-    assert kwargs["ended_at"] >= before
+    # La marca del lote, no el reloj de Python: con este, el aviso quedaria
+    # con ends_at > batch_at y los avisos lo tomarian por vivo (ADR-0021).
+    assert kwargs["ended_at"] == BATCH_AT
 
 
 async def test_sin_cambios_no_publica() -> None:

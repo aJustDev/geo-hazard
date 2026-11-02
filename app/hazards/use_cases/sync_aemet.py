@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from app.core.aemet.driver import AemetClient
@@ -43,10 +43,11 @@ class SyncAemetUseCase:
         warnings = await client.fetch_warnings()
 
         ingestible = [w for w in warnings if self._is_ingestible(w)]
+        batch_at = await self.repo.transaction_now()
         inserted, updated = await self.repo.upsert_batch([self._to_row(w) for w in ingestible])
 
         closed = await self._close_superseded(warnings)
-        closed += await self._close_vanished(ingestible)
+        closed += await self._close_vanished(ingestible, batch_at=batch_at)
 
         await self.sync_state.record_success(
             SOURCE, cursor={"identifiers": sorted(w.external_id for w in ingestible)}
@@ -55,7 +56,13 @@ class SyncAemetUseCase:
         if inserted or updated or closed:
             await self.event_bus.publish(
                 BATCH_INGESTED,
-                {"source": SOURCE, "inserted": inserted, "updated": updated, "closed": closed},
+                {
+                    "source": SOURCE,
+                    "inserted": inserted,
+                    "updated": updated,
+                    "closed": closed,
+                    "batch_at": batch_at.isoformat(),
+                },
             )
         logger.info(
             "aemet sync: %d inserted, %d updated, %d closed (%d in bulletin)",
@@ -92,15 +99,17 @@ class SyncAemetUseCase:
             )
         return closed
 
-    async def _close_vanished(self, ingestible: list[AemetWarning]) -> int:
+    async def _close_vanished(self, ingestible: list[AemetWarning], *, batch_at: datetime) -> int:
+        # Retirado del boletin sin Cancel: se cierra a la marca del lote, no
+        # al reloj de Python, que va por delante del inicio de la transaccion
+        # y dejaria el aviso con ends_at > batch_at, aparentemente vivo
+        # (ADR-0021).
         state = await self.sync_state.get(SOURCE)
         previous = set(state.cursor.get("identifiers", [])) if state is not None else set()
         vanished = previous - {w.external_id for w in ingestible}
         if not vanished:
             return 0
-        return await self.repo.close_events(
-            source=SOURCE, external_ids=vanished, ended_at=datetime.now(UTC)
-        )
+        return await self.repo.close_events(source=SOURCE, external_ids=vanished, ended_at=batch_at)
 
     @staticmethod
     def _to_row(warning: AemetWarning) -> dict[str, Any]:

@@ -1,6 +1,7 @@
 """Pipeline EFFIS end-to-end contra PostGIS real: job -> upsert -> outbox ->
 snapshot GeoParquet. Es el contrato vertebral de la fase 2."""
 
+from datetime import datetime
 from pathlib import Path
 
 import duckdb
@@ -59,7 +60,12 @@ async def test_pipeline_completo_effis(
                 select(OutboxEventORM).where(OutboxEventORM.event_type == "hazards.batch_ingested")
             )
         ).scalar_one()
-        assert event.payload == {"source": "effis", "inserted": 2, "updated": 0, "closed": 0}
+        payload = dict(event.payload)
+        batch_at = datetime.fromisoformat(payload.pop("batch_at"))
+        assert payload == {"source": "effis", "inserted": 2, "updated": 0, "closed": 0}
+        # La marca del lote es la que llevan las filas insertadas (ADR-0021).
+        created = (await session.execute(select(HazardEventORM.created_at))).scalars().all()
+        assert set(created) == {batch_at}
 
     # 2. El worker del outbox despacha el evento -> snapshot GeoParquet.
     await OutboxWorker()._process_batch()

@@ -108,7 +108,10 @@ handler selects precisely the batch:
 backed by indexes on `(source, created_at)` and `(source, updated_at)`.
 Warnings and fires that vanish from their source are closed at `batch_at`,
 not at the Python clock, which runs later than the transaction start and
-would leave a withdrawn warning looking alive. Events published before this
+would leave a withdrawn warning looking alive. A row inserted by one batch
+and rewritten by a later one is reached by both (`created_at` keeps the
+first mark); matching is idempotent, so a late retry of the older event is
+harmless. Events published before this
 change have no `batch_at` and are skipped with a log line.
 
 ### Matching produces episodes, not messages

@@ -36,6 +36,7 @@ class SyncIgnUseCase:
         records = await client.fetch_earthquakes()
         rows = [self._to_row(record) for record in records]
 
+        batch_at = await self.repo.transaction_now()
         inserted, updated = await self.repo.upsert_batch(rows)
         cursor = None
         if records:
@@ -45,7 +46,12 @@ class SyncIgnUseCase:
         if inserted or updated:
             await self.event_bus.publish(
                 BATCH_INGESTED,
-                {"source": SOURCE, "inserted": inserted, "updated": updated},
+                {
+                    "source": SOURCE,
+                    "inserted": inserted,
+                    "updated": updated,
+                    "batch_at": batch_at.isoformat(),
+                },
             )
         logger.info("ign sync: %d inserted, %d updated (%d fetched)", inserted, updated, len(rows))
         return (inserted, updated)

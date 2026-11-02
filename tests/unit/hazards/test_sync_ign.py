@@ -1,7 +1,10 @@
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 from app.core.ign.drivers.fake import IgnFakeClient
 from app.hazards.use_cases.sync_ign import SyncIgnUseCase
+
+BATCH_AT = datetime(2026, 7, 4, 10, 15, 0, 1, tzinfo=UTC)
 
 
 def make_use_case(
@@ -9,6 +12,7 @@ def make_use_case(
 ) -> tuple[SyncIgnUseCase, AsyncMock, AsyncMock, AsyncMock]:
     repo = AsyncMock()
     repo.upsert_batch.return_value = upsert_result
+    repo.transaction_now.return_value = BATCH_AT
     sync_state = AsyncMock()
     bus = AsyncMock()
     return SyncIgnUseCase(repo=repo, sync_state=sync_state, event_bus=bus), repo, sync_state, bus
@@ -23,7 +27,12 @@ async def test_con_cambios_publica_evento_de_lote() -> None:
     assert len(repo.upsert_batch.call_args.args[0]) == 2
     event_type, payload = bus.publish.call_args.args
     assert event_type == "hazards.batch_ingested"
-    assert payload == {"source": "ign", "inserted": 2, "updated": 0}
+    assert payload == {
+        "source": "ign",
+        "inserted": 2,
+        "updated": 0,
+        "batch_at": BATCH_AT.isoformat(),
+    }
 
 
 async def test_el_cursor_guarda_el_ultimo_evento() -> None:

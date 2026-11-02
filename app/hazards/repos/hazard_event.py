@@ -125,6 +125,16 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
             updated += len(flags) - sum(flags)
         return (inserted, updated)
 
+    async def transaction_now(self) -> datetime:
+        """now() de la transaccion en curso: la marca que llevan en created_at
+        o updated_at todas las filas que escribe este lote (ADR-0021).
+
+        Conviene leerla despues de cualquier llamada lenta: abre la
+        transaccion si aun no lo estaba.
+        """
+        now: datetime = (await self.session.execute(select(func.now()))).scalar_one()
+        return now
+
     async def close_events(
         self, *, source: str, external_ids: Collection[str], ended_at: datetime
     ) -> int:

@@ -1,8 +1,11 @@
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from app.core.effis.drivers.fake import EffisFakeClient
 from app.hazards.use_cases.sync_effis import SyncEffisUseCase
+
+BATCH_AT = datetime(2026, 7, 4, 10, 0, 0, 654321, tzinfo=UTC)
 
 
 def make_use_case(
@@ -11,6 +14,7 @@ def make_use_case(
     repo = AsyncMock()
     repo.upsert_batch.return_value = upsert_result
     repo.close_events.return_value = 0
+    repo.transaction_now.return_value = BATCH_AT
     sync_state = AsyncMock()
     sync_state.get.return_value = None  # sin cursor previo salvo que el test lo ponga
     bus = AsyncMock()
@@ -31,7 +35,13 @@ async def test_con_cambios_publica_evento_de_lote() -> None:
     bus.publish.assert_awaited_once()
     event_type, payload = bus.publish.call_args.args
     assert event_type == "hazards.batch_ingested"
-    assert payload == {"source": "effis", "inserted": 2, "updated": 0, "closed": 0}
+    assert payload == {
+        "source": "effis",
+        "inserted": 2,
+        "updated": 0,
+        "closed": 0,
+        "batch_at": BATCH_AT.isoformat(),
+    }
 
 
 async def test_sin_cambios_no_publica() -> None:
@@ -79,6 +89,13 @@ async def test_area_quemada_desaparecida_se_cierra() -> None:
     kwargs = repo.close_events.call_args.kwargs
     assert kwargs["source"] == "effis"
     assert kwargs["external_ids"] == {"ba-viejo"}
+    assert kwargs["ended_at"] == BATCH_AT
     bus.publish.assert_awaited_once()
     payload = bus.publish.call_args.args[1]
-    assert payload == {"source": "effis", "inserted": 0, "updated": 0, "closed": 1}
+    assert payload == {
+        "source": "effis",
+        "inserted": 0,
+        "updated": 0,
+        "closed": 1,
+        "batch_at": BATCH_AT.isoformat(),
+    }
