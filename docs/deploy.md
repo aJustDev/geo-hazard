@@ -54,13 +54,18 @@ scheduled workflows after 60 days without repository activity.
 
 - `/opt/geohazard`: git checkout of this repo. Runtime configuration lives
   ONLY in `/opt/geohazard/.env` (database credentials, `AEMET_API_KEY`,
-  `*_DRIVER=http` including `NOTIFICATIONS_DRIVER`); it is never committed.
+  `*_DRIVER=http` including `NOTIFICATIONS_DRIVER`, `CORS_ORIGINS` with the
+  portfolio and the front origins); it is never committed. After editing it,
+  recreate the API (`docker compose up -d api`): a restart does not re-read it.
 - [`compose.yml`](../compose.yml) (production): PostGIS on
   `127.0.0.1:5436`, API on `127.0.0.1:8002`, both with explicit memory
   limits. Named volumes: `geohazard_pgdata` (database) and `geohazard_data`
   (GeoParquet snapshots - the accumulated history, ADR-0007).
 - The reverse proxy owns TLS and forwards `geohazard.ajustino.dev` to
-  `localhost:8002`.
+  `localhost:8002`, except `/tiles/*`, served from disk.
+- `/opt/geohazard-tiles`: the front's basemap (ADR-0022), outside the
+  checkout. Owned by the deploy user, readable by Caddy. Not touched by the
+  deploy.
 
 ## Operational notes
 
@@ -202,11 +207,27 @@ signed webhook. Nothing is sent until a subscription exists.
   HMAC-SHA256 with the subscription key over `"<t>." + raw body`, rejecting
   stale `t`. Delivery is at least once: deduplicate on `items[].delivery_id`.
 
+### Basemap (ADR-0022)
+
+The front's basemap is a Protomaps extract of Spain (max zoom 12, ~450 MB)
+plus the glyphs and sprites of its style. It is built on a dev machine (the
+server has no `pmtiles` CLI) and uploaded by hand:
+```
+scripts/build_basemap.sh /tmp/basemap-out      # basemap/spain-<YYYYMMDD>.pmtiles + assets/
+rsync -av --progress /tmp/basemap-out/ cartagena:/opt/geohazard-tiles/
+curl -sI -H 'Range: bytes=0-15' https://geohazard.ajustino.dev/tiles/basemap/spain-<YYYYMMDD>.pmtiles   # 206
+```
+The file name carries the build date and is cached as immutable: a refresh
+is a new file plus bumping the name in the front, then deleting the old
+file once the front is deployed. One-time setup of the directory:
+`sudo install -d -o ductual -g ductual -m 755 /opt/geohazard-tiles`.
+
 ### Reverse proxy
 
 The Caddy site block is versioned at
 [`deploy/geohazard.caddy`](../deploy/geohazard.caddy): TLS 1.3, security
-headers, no `Server` header, `/metrics` blocked. It is NOT applied by the
+headers, no `Server` header, `/metrics` blocked, `/tiles/*` from
+`/opt/geohazard-tiles` with open CORS and Range support. It is NOT applied by the
 deploy; after changing it, on the server:
 ```
 sudo cp /opt/geohazard/deploy/geohazard.caddy /etc/caddy/sites/

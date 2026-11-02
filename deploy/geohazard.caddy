@@ -14,8 +14,39 @@ geohazard.ajustino.dev {
 	}
 	# /metrics no lo consume nadie: el Prometheus del host solo raspa ductual, y
 	# geohazard se queda fuera a proposito (ADR-0019). Se bloquea igual en publico.
-	@metrics path /metrics
-	respond @metrics 404
+	# Va en un handle propio: respond fuera de handle se ordena DESPUES de los
+	# handle, y el catch-all del final lo mandaria al upstream.
+	handle /metrics {
+		respond 404
+	}
 
-	reverse_proxy localhost:8002
+	# Basemap del front (ADR-0022): PMTiles y sus fuentes/sprites servidos desde
+	# disco. file_server ya maneja Range y ETag, que es todo lo que pide un
+	# cliente PMTiles. Un fetch con cabecera Range no es una peticion CORS
+	# "simple": el navegador hace preflight, y sin este handler el mapa solo
+	# funcionaria en el mismo origen.
+	@tiles_preflight {
+		method OPTIONS
+		path /tiles/*
+	}
+	handle @tiles_preflight {
+		header Access-Control-Allow-Origin "*"
+		header Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+		header Access-Control-Allow-Headers "Range, If-Match, If-None-Match"
+		header Access-Control-Max-Age "86400"
+		respond "" 204
+	}
+	handle_path /tiles/* {
+		root * /opt/geohazard-tiles
+		header Access-Control-Allow-Origin "*"
+		header Access-Control-Expose-Headers "Content-Range, Content-Length, Accept-Ranges, ETag"
+		# El nombre lleva la fecha del build: un fichero nuevo es otra URL.
+		@pmtiles path *.pmtiles
+		header @pmtiles Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	handle {
+		reverse_proxy localhost:8002
+	}
 }
