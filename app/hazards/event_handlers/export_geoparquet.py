@@ -35,6 +35,8 @@ _SCHEMA = pa.schema(
         ("ends_at", pa.timestamp("us", tz="UTC")),
         ("wkb", pa.binary()),
         ("attrs", pa.string()),
+        # Provincia INE del evento (ADR-0023); NULL fuera de las 52.
+        ("province_code", pa.string()),
     ]
 )
 

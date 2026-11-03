@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import ColumnElement, and_, any_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.hazards.models import HazardEventORM, in_province
+from app.hazards.models import HazardEventORM
 from app.notifications.models import SubscriptionORM, WatchAreaORM
 
 
@@ -41,12 +41,13 @@ def _notifiable(source: str, batch_at: datetime, quake_max_age: timedelta) -> Co
 
 
 def _area_contains(event: type[HazardEventORM], area: type[WatchAreaORM]) -> ColumnElement[bool]:
-    """bbox y circulo: el evento la toca. Provincia: la regla comun de
-    `in_province` (un punto cae dentro; un poligono es suyo si es la provincia
-    con la que mas solapa, porque las zonas AEMET cruzan limites; ADR-0021)."""
+    """bbox y circulo: el evento la toca. Provincia: la del propio evento
+    (`province_code`, calculada al ingerir: un punto es de la provincia en la
+    que cae y un poligono de la que mas solapa, porque las zonas AEMET cruzan
+    limites; ADR-0021, ADR-0023)."""
     return and_(
         func.ST_Intersects(area.geom, event.geom),
-        or_(area.kind != "province", in_province(event.geom, area.params["code"].astext)),
+        or_(area.kind != "province", event.province_code == area.params["code"].astext),
     )
 
 

@@ -28,6 +28,7 @@ class ListEventsUseCase:
         self,
         *,
         bbox_raw: str | None = None,
+        province: str | None = None,
         hazard_types: list[str] | None = None,
         source: str | None = None,
         severity_min: int | None = None,
@@ -47,6 +48,7 @@ class ListEventsUseCase:
 
         items, next_key = await self.repo.list_page(
             bbox=bbox,
+            province=province,
             hazard_types=hazard_types,
             source=source,
             severity_min=severity_min,
@@ -65,7 +67,10 @@ class ListEventsUseCase:
             features=features,
             numberReturned=len(features),
             nextCursor=next_cursor,
-            attribution=attributions_for(f.properties.source for f in features),
+            # La pertenencia a provincia sale de los limites del CNIG.
+            attribution=attributions_for(
+                [*(f.properties.source for f in features), *(["cnig"] if province else [])]
+            ),
         )
 
     @staticmethod

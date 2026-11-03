@@ -6,6 +6,7 @@ from geoalchemy2.elements import WKBElement
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
+    FetchedValue,
     Index,
     SmallInteger,
     String,
@@ -54,6 +55,12 @@ class HazardEventORM(UUIDPkMixin, TimestampsMixin, Base):
     # sha256 del payload canonico: un re-servido identico no toca disco ni
     # emite eventos (ADR-0008).
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Provincia INE del evento (punto dentro, poligono de mayor solape;
+    # ADR-0023). La calcula un trigger al escribir geom: el codigo no la toca.
+    # NULL fuera de las 52 provincias (mar, Portugal, norte de Africa).
+    province_code: Mapped[str | None] = mapped_column(
+        String(2), nullable=True, server_default=FetchedValue(), server_onupdate=FetchedValue()
+    )
 
     __table_args__ = (
         UniqueConstraint("source", "external_id", name="uq_hazard_events_source_external_id"),
@@ -74,6 +81,14 @@ class HazardEventORM(UUIDPkMixin, TimestampsMixin, Base):
         # updates y cierres.
         Index("ix_hazard_events_source_created_at", "source", "created_at"),
         Index("ix_hazard_events_source_updated_at", "source", "updated_at"),
+        # Filtro por provincia con el orden keyset de la lista (ADR-0023).
+        Index(
+            "ix_hazard_events_province_starts_at",
+            "province_code",
+            text("starts_at DESC"),
+            text("id DESC"),
+            postgresql_where=text("province_code IS NOT NULL"),
+        ),
         # Parcial: solo los eventos con ventana participan en `active=true`.
         Index(
             "ix_hazard_events_ends_at_activos",

@@ -163,6 +163,7 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
         self,
         *,
         bbox: tuple[float, float, float, float] | None = None,
+        province: str | None = None,
         hazard_types: list[str] | None = None,
         source: str | None = None,
         severity_min: int | None = None,
@@ -182,6 +183,8 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
         if bbox is not None:
             envelope = func.ST_MakeEnvelope(*bbox, SRID_WGS84)
             stmt = stmt.where(HazardEventORM.geom.ST_Intersects(envelope))
+        if province is not None:
+            stmt = stmt.where(HazardEventORM.province_code == province)
         stmt = _apply_filters(
             stmt,
             hazard_types=hazard_types,
@@ -378,6 +381,7 @@ class HazardEventRepo(BaseRepo[HazardEventORM]):
                 HazardEventORM.ends_at,
                 func.ST_AsBinary(HazardEventORM.geom).label("wkb"),
                 HazardEventORM.attrs.cast(String).label("attrs"),
+                HazardEventORM.province_code,
             )
             .where(HazardEventORM.source == source)
             .order_by(HazardEventORM.starts_at)

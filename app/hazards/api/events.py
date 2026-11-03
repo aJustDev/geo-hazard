@@ -39,6 +39,16 @@ Source = Literal["effis", "ign", "aemet"]
 async def list_events(
     repo: Annotated[HazardEventRepo, Depends(get_repo(HazardEventRepo))],
     bbox: Annotated[str | None, Query(description="minLon,minLat,maxLon,maxLat (WGS84)")] = None,
+    province: Annotated[
+        str | None,
+        Query(
+            pattern=r"^\d{2}$",
+            description=(
+                "INE province code, e.g. 30. A point belongs to the province it falls in; "
+                "a polygon to the province it overlaps most (AEMET zones cross borders)."
+            ),
+        ),
+    ] = None,
     hazard_type: Annotated[list[HazardType] | None, Query()] = None,
     source: Annotated[Source | None, Query()] = None,
     severity_min: Annotated[int | None, Query(ge=1, le=4)] = None,
@@ -54,6 +64,7 @@ async def list_events(
     use_case = ListEventsUseCase(repo=repo)
     return await use_case.execute(
         bbox_raw=bbox,
+        province=province,
         hazard_types=list(hazard_type) if hazard_type else None,
         source=source,
         severity_min=severity_min,
