@@ -12,11 +12,10 @@ from geoalchemy2 import WKTElement
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.hazards.models import HazardEventORM
+from app.hazards.models import HazardEventORM, ProvinceORM
 from app.notifications.models import (
     NotificationDeliveryORM,
     NotificationEpisodeORM,
-    ProvinceORM,
     SubscriptionORM,
 )
 from app.notifications.repos.watch_area import WatchAreaRepo

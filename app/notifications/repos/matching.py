@@ -9,8 +9,8 @@ from typing import Any
 from sqlalchemy import ColumnElement, and_, any_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.hazards.models import HazardEventORM
-from app.notifications.models import ProvinceORM, SubscriptionORM, WatchAreaORM
+from app.hazards.models import HazardEventORM, in_province
+from app.notifications.models import SubscriptionORM, WatchAreaORM
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,23 +41,12 @@ def _notifiable(source: str, batch_at: datetime, quake_max_age: timedelta) -> Co
 
 
 def _area_contains(event: type[HazardEventORM], area: type[WatchAreaORM]) -> ColumnElement[bool]:
-    """bbox y circulo: el evento la toca. Provincia: un punto cae dentro y un
-    poligono es suyo si es la provincia con la que mas solapa (las zonas
-    AEMET cruzan limites provinciales; ver ADR-0021)."""
-    best_province = (
-        select(ProvinceORM.code)
-        .where(func.ST_Intersects(ProvinceORM.geom, event.geom))
-        .order_by(func.ST_Area(func.ST_Intersection(ProvinceORM.geom, event.geom)).desc())
-        .limit(1)
-        .scalar_subquery()
-    )
+    """bbox y circulo: el evento la toca. Provincia: la regla comun de
+    `in_province` (un punto cae dentro; un poligono es suyo si es la provincia
+    con la que mas solapa, porque las zonas AEMET cruzan limites; ADR-0021)."""
     return and_(
         func.ST_Intersects(area.geom, event.geom),
-        or_(
-            area.kind != "province",
-            func.ST_Dimension(event.geom) == 0,
-            best_province == area.params["code"].astext,
-        ),
+        or_(area.kind != "province", in_province(event.geom, area.params["code"].astext)),
     )
 
 

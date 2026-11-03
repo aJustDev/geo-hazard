@@ -45,6 +45,7 @@ time of its last successful update.
 4. Provincial boundaries: CNIG (data/reference/provinces_es.parquet)
 
    Terms:  https://www.ign.es/resources/licencia/Condiciones_licenciaUso_IGN.pdf
-   Reuse:  CC BY 4.0. Simplified from the CNIG "lineas limite" (ADR-0013) and
-           used only to aggregate analytics by province.
+   Reuse:  CC BY 4.0. Simplified from the CNIG "lineas limite" (ADR-0013).
+           Used to aggregate analytics by province, to filter events by
+           province and for province watch areas (ADR-0021).
    Credit: "Obra derivada de las lineas limite del CNIG, CC-BY 4.0 ign.es"

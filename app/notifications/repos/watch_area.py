@@ -3,8 +3,9 @@ from sqlalchemy import cast, func, select
 
 from app.core.exceptions.exceptions import NotFoundError
 from app.core.repo import BaseRepo
+from app.hazards.models import ProvinceORM
 from app.hazards.services.geometry import SRID_WGS84
-from app.notifications.models import ProvinceORM, WatchAreaORM
+from app.notifications.models import WatchAreaORM
 from app.notifications.services.areas import BboxArea, CircleArea, ProvinceArea
 
 

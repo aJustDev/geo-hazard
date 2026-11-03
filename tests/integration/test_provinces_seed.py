@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.notifications.models import ProvinceORM
+from app.hazards.models import ProvinceORM
 
 pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
 

@@ -12,10 +12,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions.exceptions import NotFoundError
+from app.hazards.models import ProvinceORM
 from app.notifications.models import (
     NotificationDeliveryORM,
     NotificationEpisodeORM,
-    ProvinceORM,
     SubscriptionORM,
     WatchAreaORM,
 )
