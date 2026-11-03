@@ -52,8 +52,15 @@ curl 'https://geohazard.ajustino.dev/v1/events/near?lon=-3.70&lat=40.42&radius_m
 # Wildfire clusters in Galicia (DBSCAN, 5 km neighborhood)
 curl 'https://geohazard.ajustino.dev/v1/events/clusters?eps_m=5000&min_points=5&hazard_type=wildfire&bbox=-9.5,41.8,-6.7,43.8'
 
+# Warnings in force in Murcia (INE province 30)
+curl 'https://geohazard.ajustino.dev/v1/events?province=30&active=true'
+
 # Burned hectares per month in Badajoz (INE province 06)
 curl 'https://geohazard.ajustino.dev/v1/analytics/wildfires/burned-area?year=2026&province=06'
+
+# Monthly history of a 50 km circle around Madrid: days with a warning per
+# level, earthquakes and burnt areas
+curl 'https://geohazard.ajustino.dev/v1/analytics/zone/monthly?year=2026&lon=-3.70&lat=40.42&radius_m=50000'
 
 # How fresh each source is
 curl 'https://geohazard.ajustino.dev/v1/sources/status'
