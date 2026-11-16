@@ -52,8 +52,12 @@ Including transitive packages lets the weekly PR fix a CVE in one of them
 even when Dependabot never opens the security PR, as happened on 2026-11-14.
 A merge
 made by `GITHUB_TOKEN` does not trigger `CI` on `main`, so the Nightly's
-`redeploy` job dispatches `CI` for a `main` head without a run, and `Deploy`
-follows: a security fix reaches production within a day. GitHub disables
+`redeploy` job takes care of a `main` head that has not been deployed: it
+dispatches `CI` if the head has no green run, waits for it, and dispatches
+`Deploy`, which checks for that green run itself. Both go through
+`workflow_dispatch` because a `CI` run started by `GITHUB_TOKEN` does not
+trigger `Deploy` through `workflow_run`. A security fix reaches production
+within a day. GitHub disables
 scheduled workflows after 60 days without repository activity.
 
 ## Server layout

@@ -40,22 +40,45 @@ jobs:
         run: uv run pytest -m contract -v
 
   # El auto-merge de Dependabot lo hace GITHUB_TOKEN, cuyo push no dispara CI
-  # en main y por tanto tampoco Deploy. Si el ultimo commit de main no tiene
-  # CI, se lanza aqui (workflow_dispatch si dispara), y Deploy lo sigue.
+  # en main y por tanto tampoco Deploy. Si el ultimo commit de main no esta
+  # desplegado, se le pasa la CI si no la tiene en verde y se lanza Deploy,
+  # los dos con workflow_dispatch: es lo unico que GITHUB_TOKEN si dispara.
+  # Una CI lanzada asi no encadena Deploy por `workflow_run` (2026-11-16).
   redeploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       actions: write
       contents: read
     steps:
-      - name: CI sobre main si su ultimo commit no lo tiene
+      - name: Desplegar main si su ultimo commit no lo esta
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         run: |
+          set -euo pipefail
           sha="$(gh api "repos/$REPO/commits/main" -q .sha)"
-          runs="$(gh run list -R "$REPO" --workflow ci.yml --commit "$sha" --json databaseId -q length)"
-          if [ "$runs" -eq 0 ]; then
-            echo "main@$sha sin CI: se lanza"
-            gh workflow run ci.yml -R "$REPO" --ref main
+          deployed="$(gh run list -R "$REPO" --workflow deploy.yml --commit "$sha" --status success --json databaseId -q length)"
+          if [ "$deployed" -gt 0 ]; then
+            echo "main@$sha ya desplegado"
+            exit 0
           fi
+          ci_ok="$(gh run list -R "$REPO" --workflow ci.yml --commit "$sha" --status success --json databaseId -q length)"
+          if [ "$ci_ok" -eq 0 ]; then
+            echo "main@$sha sin CI en verde: se lanza"
+            gh workflow run ci.yml -R "$REPO" --ref main
+            id=""
+            for _ in $(seq 1 30); do
+              id="$(gh run list -R "$REPO" --workflow ci.yml --commit "$sha" --event workflow_dispatch \
+                --json databaseId,status -q '[.[] | select(.status != "completed")][0].databaseId // empty')"
+              [ -n "$id" ] && break
+              sleep 5
+            done
+            if [ -z "$id" ]; then
+              echo "::error::no aparece la CI lanzada para main@$sha"
+              exit 1
+            fi
+            gh run watch "$id" -R "$REPO" --exit-status > /dev/null
+          fi
+          echo "main@$sha sin desplegar: se lanza Deploy"
+          gh workflow run deploy.yml -R "$REPO" --ref main

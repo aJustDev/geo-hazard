@@ -9,6 +9,10 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  # Lo lanza el job `redeploy` del Nightly. Una CI lanzada con GITHUB_TOKEN
+  # (la del redeploy) no dispara `workflow_run`, asi que Deploy no la seguiria
+  # solo: paso el 2026-11-16 con el primer auto-merge de Dependabot.
+  workflow_dispatch:
 
 concurrency:
   group: deploy-geohazard
@@ -16,10 +20,29 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && vars.GEOHAZARD_DEPLOY_ENABLED == 'true' }}
+    if: >-
+      vars.GEOHAZARD_DEPLOY_ENABLED == 'true'
+      && (github.event_name == 'workflow_dispatch'
+          || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
     steps:
+      # Por workflow_dispatch no hay `workflow_run` que diga como acabo la CI:
+      # se comprueba aqui, para que tampoco asi llegue un commit en rojo.
+      - name: CI en verde para este commit
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ok="$(gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$GITHUB_SHA" --status success --json databaseId -q length)"
+          if [ "$ok" -eq 0 ]; then
+            echo "::error::$GITHUB_SHA no tiene CI en verde: no se despliega"
+            exit 1
+          fi
+
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
