@@ -1,15 +1,27 @@
 version: 2
 updates:
-  # Minor y patch en una sola PR mensual; las majors llegan en PRs sueltas para
+  # Minor y patch en una sola PR semanal que se mergea sola
+  # (dependabot-automerge.yml); las majors llegan en PRs sueltas para
   # revisarlas una a una. Los CVEs los vigila aparte el workflow Nightly.
+  #
+  # `allow: all` mete tambien las transitivas. Sin eso la PR semanal solo sube
+  # las directas, y un CVE en una transitiva (opentelemetry-api via fastapi,
+  # 2026-11-14) la deja en rojo por pip-audit en vez de arreglarlo. Es la red
+  # para cuando Dependabot no abre la PR de security updates, que paso con ese
+  # CVE: alerta abierta dos dias y ningun intento.
   #
   # Las security updates, todas en UNA PR: sueltas (una por paquete) nunca
   # salen verdes, porque pip-audit y trivy tumban cada una por los CVEs que
-  # arreglan las demas. Esa PR la mergea sola dependabot-automerge.yml.
+  # arreglan las demas. Esa PR tambien se mergea sola.
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "Europe/Madrid"
+    allow:
+      - dependency-type: "all"
     commit-message:
       prefix: "build"
       include: "scope"
@@ -23,9 +35,13 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "Europe/Madrid"
     commit-message:
       prefix: "ci"
     groups:
       actions:
         patterns: ["*"]
+        update-types: ["minor", "patch"]

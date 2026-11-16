@@ -1,9 +1,16 @@
 name: Dependabot auto-merge
 
-# Activa el auto-merge de la PR agrupada de security updates de uv
-# (dependabot.yml, grupo `security`): GitHub la mergea cuando pasan los checks
-# que exige la proteccion de main (checks, image, test). El resto de PRs de
-# Dependabot (minor/patch mensual, majors) siguen esperando revision.
+# Activa el auto-merge de las PRs de Dependabot que no necesitan a una persona:
+# GitHub las mergea cuando pasan los checks que exige la proteccion de main
+# (checks, image, test). Entran:
+# - la PR agrupada de security updates (grupo `security`), sea cual sea el
+#   salto de version;
+# - las agrupadas semanales (`python-minor-patch`, `actions`), que
+#   dependabot.yml ya limita a minor y patch, si no traen una major;
+# - una suelta, solo si declara minor o patch. Sin el dato se queda: las de
+#   imagenes Docker no lo traen, y un salto de version de Python no debe
+#   entrar solo.
+# Las majors sueltas y lo que no pasa los checks siguen esperando revision.
 #
 # El merge lo hace GITHUB_TOKEN, y un push de GITHUB_TOKEN no dispara CI en
 # main: el deploy de ese merge lo recoge el job `redeploy` del Nightly.
@@ -24,8 +31,28 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Enable auto-merge
-        if: steps.metadata.outputs.dependency-group == 'security'
-        run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GROUP: ${{ steps.metadata.outputs.dependency-group }}
+          TYPE: ${{ steps.metadata.outputs.update-type }}
+        run: |
+          case "$GROUP" in
+            security) ;;
+            python-minor-patch|actions)
+              if [ "$TYPE" = "version-update:semver-major" ]; then
+                echo "el grupo $GROUP trae una major: se queda para revision"
+                exit 0
+              fi
+              ;;
+            *)
+              case "$TYPE" in
+                version-update:semver-minor|version-update:semver-patch) ;;
+                *)
+                  echo "suelta sin minor/patch declarado ('$TYPE'): se queda para revision"
+                  exit 0
+                  ;;
+              esac
+              ;;
+          esac
+          gh pr merge --auto --squash "$PR_URL"

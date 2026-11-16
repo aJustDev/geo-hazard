@@ -40,11 +40,17 @@ record and the server provisioning exist, so enabling deploys is an explicit,
 auditable act.
 
 The `Nightly` workflow (daily cron) runs `pip-audit` against the lock and the
-contract tests against the live EFFIS, IGN and AEMET endpoints. Dependabot
-opens one grouped PR a month for minor/patch updates of uv packages and
-actions, and one grouped PR for all pending uv security updates. That
-security PR is auto-merged (`dependabot-automerge.yml`) once the checks that
-`main`'s branch protection requires (`checks`, `image`, `test`) pass. A merge
+contract tests against the live EFFIS, IGN and AEMET endpoints. Every Monday
+Dependabot opens one grouped PR for minor/patch updates of uv packages
+(direct and transitive) and another for actions; it also opens one grouped PR
+for all pending uv security updates. `dependabot-automerge.yml` enables
+auto-merge on the security PR, on the weekly grouped PRs unless they carry a
+major, and on a standalone PR only if it declares minor or patch. GitHub
+merges them once the checks that `main`'s branch protection requires
+(`checks`, `image`, `test`) pass; majors and red PRs wait for review.
+Including transitive packages lets the weekly PR fix a CVE in one of them
+even when Dependabot never opens the security PR, as happened on 2026-11-14.
+A merge
 made by `GITHUB_TOKEN` does not trigger `CI` on `main`, so the Nightly's
 `redeploy` job dispatches `CI` for a `main` head without a run, and `Deploy`
 follows: a security fix reaches production within a day. GitHub disables
